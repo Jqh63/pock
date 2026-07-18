@@ -36,9 +36,17 @@
   (`<html lang="fr">`, labels boutons, toasts). Cette règle ne
   concerne pas les messages commit / titres de PR / doc, qui peuvent
   rester en français aussi pour la cohérence.
-- Ouvrir les PRs avec `gh pr create`. Merger via l'UI GitHub ou
-  `gh pr merge <num> --merge --delete-branch` (préserver l'historique,
-  pas de squash).
+- Ouvrir les PRs avec `gh pr create -R Jqh63/pock`. Merger via l'UI
+  GitHub ou `gh pr merge <num> -R Jqh63/pock --merge --delete-branch`
+  (préserver l'historique, pas de squash).
+- **`-R Jqh63/<repo>` sur TOUTE commande `gh pr` / `gh issue`, sans
+  exception** — y compris juste après un `cd`. Le sandbox agent
+  travaille sur quatre clones et le cwd d'un appel shell ne persiste
+  pas de façon fiable : sans `-R`, `gh` résout le repo depuis le
+  répertoire courant du moment. Les numéros de PR se recoupent entre
+  les repos, ce qui rend l'erreur silencieuse et destructrice — le
+  2026-07-18, un `gh pr merge 137` destiné à `plex-jqh-omv` a visé
+  `knowledge-base#137`, une PR sans rapport.
 
 ## Avant chaque commit
 
