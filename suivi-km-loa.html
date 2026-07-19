@@ -181,7 +181,7 @@ const COLORS = ["#3563e9","#00796b","#d97706","#9333ea","#dc2626","#0891b2","#4f
 const VEHICLES_KEY = "pock-km-vehicles";
 const ACTIVE_KEY = "pock-km-active";
 
-// Projection : on s'appuie sur le rythme depuis le début du contrat (pas depuis le 1er relevé).
+// Projection : rythme = début du contrat → DERNIER RELEVÉ (pas jusqu'à aujourd'hui).
 // Un seul relevé suffit si le contrat tourne depuis assez longtemps.
 const PROJECTION_MIN_DAYS = 30;     // contrat trop jeune → rythme trop bruité
 const STALE_ENTRY_DAYS = 60;        // dernier relevé plus vieux que ça → warning
@@ -281,23 +281,31 @@ function render() {
   const latest = sorted.length > 0 ? sorted[sorted.length - 1] : null;
   const currentKm = latest ? latest.km : 0;
   const kmProgress = (currentKm / C.totalKm) * 100;
-  // Plafonner la base temporelle du « prévu » à la durée du contrat : après la
-  // fin, daysElapsed dépasse totalDays et expectedKm grimperait au-delà du
-  // forfait, rendant l'« écart vs prévu » artificiellement favorable (le chart
-  // plafonne déjà son équivalent).
+  const lastEntryDate = latest ? new Date(latest.date) : null;
+  const lastEntryAgeDays = lastEntryDate ? Math.max(0, daysBetween(lastEntryDate, now)) : null;
+  const lastEntryStale = lastEntryAgeDays !== null && lastEntryAgeDays >= STALE_ENTRY_DAYS;
+  // Ancrer l'« attendu » sur la DATE DU DERNIER RELEVÉ, pas sur aujourd'hui :
+  // currentKm est figé au relevé alors qu'un attendu « à ce jour » avance chaque
+  // jour — sans nouvelle saisie l'écart s'améliorait artificiellement en continu.
+  // On ne compare que du mesuré à du prévu à la même date. Plafonné à la durée
+  // du contrat (même garde que le chart) ; sans relevé, base = aujourd'hui.
   const expElapsed = Math.min(daysElapsed, totalDays);
-  const expectedKm = Math.round(C.kmPerDay * expElapsed);
+  const expBaseDays = lastEntryDate ? Math.min(Math.max(0, daysBetween(C.start, lastEntryDate)), totalDays) : expElapsed;
+  const expectedKm = Math.round(C.kmPerDay * expBaseDays);
   const delta = currentKm - expectedKm;
   const dt = deltaText(delta);
   const monthsRemaining = Math.max(0, Math.ceil((C.end - now) / (864e5 * 30.44)));
   const kmRemaining = C.totalKm - currentKm;
   const kmPerMonth = monthsRemaining > 0 ? Math.round(kmRemaining / monthsRemaining) : 0;
 
-  // Cost projections — un seul relevé suffit, le rythme s'appuie sur la durée écoulée du contrat.
-  // (Pas sur la durée entre relevés : tu peux n'avoir qu'un point récent après un long silence.)
+  // Cost projections — un seul relevé suffit, le rythme s'appuie sur la durée
+  // écoulée du contrat JUSQU'AU DERNIER RELEVÉ (pas jusqu'à aujourd'hui : un
+  // relevé figé divisé par un temps qui avance diluait le rythme et rendait la
+  // projection de plus en plus optimiste tant que rien n'était saisi).
   const excessRate = V.excessCostPerKm || 0;
-  const canProject = daysElapsed >= PROJECTION_MIN_DAYS && currentKm > 0;
-  const paceKmPerDay = daysElapsed > 0 ? currentKm / daysElapsed : 0;
+  const paceDays = lastEntryDate ? Math.max(0, daysBetween(C.start, lastEntryDate)) : 0;
+  const canProject = paceDays >= PROJECTION_MIN_DAYS && currentKm > 0;
+  const paceKmPerDay = paceDays > 0 ? currentKm / paceDays : 0;
   // Capped so projection never < currentKm
   const projectedKm = Math.max(currentKm, Math.round(paceKmPerDay * totalDays));
   const projectedExcess = Math.max(0, projectedKm - C.totalKm);
@@ -305,10 +313,6 @@ function render() {
   // Current excess if contract ended now
   const currentExcess = Math.max(0, currentKm - C.totalKm);
   const currentCost = currentExcess * excessRate;
-  // Last entry age (in days), used to flag a projection that may be drifting
-  const lastEntryDate = latest ? new Date(latest.date) : null;
-  const lastEntryAgeDays = lastEntryDate ? Math.max(0, daysBetween(lastEntryDate, now)) : null;
-  const lastEntryStale = lastEntryAgeDays !== null && lastEntryAgeDays >= STALE_ENTRY_DAYS;
   const fmtEur = n => n.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
 
   // #4 Allowance : combien de km/jour on peut encore rouler pour finir pile dans le forfait.
@@ -379,14 +383,14 @@ function render() {
             <div class="cost-item-value">${projectedCost > 0 ? fmtEur(projectedCost) : '0 €'}</div>
             <div class="cost-item-detail">${projectedExcess > 0 ? `+${fmtNum(projectedExcess)} km estimés` : 'dans le forfait'}</div>
           </div>`;
-        const baseTxt = `Projection : rythme moyen ${Math.round(paceKmPerDay)} km/j depuis le début du contrat`;
+        const baseTxt = `Projection : rythme moyen ${Math.round(paceKmPerDay)} km/j jusqu'au dernier relevé`;
         const staleTxt = lastEntryStale ? ` · ⚠️ dernier relevé il y a ${lastEntryAgeDays} j, pense à mettre à jour` : '';
         const overrunTxt = overrunDate ? `<div class="cost-basis" style="font-style:normal;font-weight:700;color:var(--danger)">⚠️ Forfait épuisé le ${fmtDate(overrunDate)} au rythme actuel</div>` : '';
         basisNote = `${overrunTxt}<div class="cost-basis">${baseTxt}${staleTxt}</div>`;
       } else if (currentKm === 0) {
         basisNote = `<div class="cost-basis">Projection indisponible : aucun relevé saisi</div>`;
       } else {
-        basisNote = `<div class="cost-basis">Projection indisponible : contrat trop jeune (${daysElapsed} j sur ${PROJECTION_MIN_DAYS} requis)</div>`;
+        basisNote = `<div class="cost-basis">Projection indisponible : historique trop jeune (${paceDays} j mesurés sur ${PROJECTION_MIN_DAYS} requis)</div>`;
       }
     }
     costCardHtml = `
@@ -441,7 +445,9 @@ function render() {
       <div class="hero-delta-label">Écart vs prévu</div>
       <div class="hero-delta-value">${dt.sign}${fmtNum(dt.abs)} km</div>
       <div class="hero-delta-unit">${dt.label}</div>
-      <div class="hero-delta-detail">${fmtNum(currentKm)} parcourus · ${fmtNum(expectedKm)} attendus à ce jour</div>
+      <div class="hero-delta-detail">${latest
+        ? `${fmtNum(currentKm)} parcourus · ${fmtNum(expectedKm)} attendus au relevé du ${fmtDate(lastEntryDate)}${lastEntryAgeDays >= 1 ? ` (il y a ${lastEntryAgeDays} j)` : ''}`
+        : `${fmtNum(currentKm)} parcourus · ${fmtNum(expectedKm)} attendus à ce jour`}</div>
     </div>
 
     ${costCardHtml}
