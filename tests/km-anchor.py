@@ -9,8 +9,12 @@ un seul relevé daté d'il y a 30 j, pile au km attendu à cette date-là.
   artificiellement favorable) → le test DOIT échouer dessus.
 Usage: python3 km-anchor-test.py <repo_dir>
 """
-import sys, json, datetime, re
+import os, sys, json, datetime, re
 from playwright.sync_api import sync_playwright
+
+# Single-engine run (aligned on plex-jqh-omv wake-e2e): first engine of
+# PWA_ENGINES, default chromium. PWA_ENGINES=webkit runs the Safari engine.
+ENGINE = os.environ.get("PWA_ENGINES", "chromium").split(",")[0].strip()
 
 repo = sys.argv[1] if len(sys.argv) > 1 else __import__("os").path.dirname(__import__("os").path.dirname(__import__("os").path.abspath(__file__)))
 today = datetime.date.today()
@@ -36,7 +40,7 @@ vehicle = [{"id": "t1", "name": "Test", "color": "#3563e9",
 entries = [{"date": entry_date.isoformat(), "km": entry_km}]
 
 with sync_playwright() as p:
-    b = p.chromium.launch()
+    b = getattr(p, ENGINE).launch()
     pg = b.new_page()
     pg.goto(f"file://{repo}/suivi-km-loa.html")
     pg.evaluate("""([v, e]) => {

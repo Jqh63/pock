@@ -20,25 +20,43 @@ python3 tests/smoke.py
 ```
 
 Exits non-zero on any failure. Screenshots are written to
-`tests/screenshots/<app>.png`.
+`tests/screenshots/<app>-<engine>.png`.
+
+## Engines (cross-browser)
+
+`smoke.py` runs every app on each engine in `PWA_ENGINES` (default
+`chromium,webkit` — Blink baseline + the WebKit/Safari engine). An engine
+whose browser can't launch (system libs missing) is **SKIPPED with a note**,
+never a hard failure. `km-anchor.py` is single-engine: it uses the first
+entry of `PWA_ENGINES` (default `chromium`).
+
+```bash
+PWA_ENGINES=chromium python3 tests/smoke.py   # Blink only
+PWA_ENGINES=webkit   python3 tests/smoke.py   # Safari engine only
+```
+
+WebKit needs a heavy system-lib stack (root install). Pattern and setup
+mirror `Jqh63/plex-jqh-omv/tests/README.md` § Engines.
 
 ## One-shot environment install
 
-Requires Python 3.12+ plus Playwright with Chromium:
+Requires Python 3.12+ plus Playwright with Chromium (and optionally WebKit):
 
 ```bash
 python3 -m pip install --user playwright
-python3 -m playwright install chromium
+python3 -m playwright install chromium webkit
 ```
 
-The Chromium binary lives in `~/.cache/ms-playwright/` (~130 MB).
+The browser binaries live in `~/.cache/ms-playwright/` (~130 MB Chromium).
 
-## Why file:// and not a local server
+## Why a loopback HTTP server and not file://
 
-Pock apps are intentionally fully static — no `fetch`, no module
-imports, no relative paths that depend on a base URL. `file://` works
-identically to GitHub Pages serving and avoids the friction of a
-background server in tests.
+`smoke.py` serves the repo over `http.server` on loopback. The suite used
+`file://` until 2026-07-19, when the WebKit lane exposed the difference:
+WebKit fetches `manifest.json` with CORS and blocks it on `file://`
+(`Origin null`), while Chromium tolerates it. Loopback HTTP matches GitHub
+Pages serving on both engines. `km-anchor.py` still uses `file://` (it
+asserts DOM values only, no console-error capture).
 
 ## Extending
 
