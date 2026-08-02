@@ -84,19 +84,30 @@ chez les utilisateurs installés :
 
 - `sw.js` : `const CACHE_NAME = 'pock-vN'` — entier monotone, +1 à chaque release UX (v1 → v14…). Pas de marqueur de version dans le footer (le footer affiche `Pock · Données stockées localement`).
 
+Un changement **doc-only** ne nécessite pas de bump. En cas de doute,
+bumper : un bump superflu ne coûte qu'un cycle d'update, un bump oublié bloque
+**silencieusement** les clients installés sur l'ancienne version.
+
+**Multi-app** : Pock sert plusieurs apps (bibliotheque, covoiturage-rando,
+suivi-km-loa…) derrière un seul `sw.js`. Vérifier que le bump couvre bien l'app
+touchée et que `sw.js` précache la liste à jour.
+
 Pas de staging — `main` est en production via GitHub Pages. Tester
-sur l'URL publique après merge.
+sur l'URL publique après merge (hard-reload, puis confirmer la nouvelle version
+`CACHE` du SW dans devtools → Application).
 
 ## Outillage .claude/
 
-Skills sur-mesure dans `.claude/skills/` :
+Pas de skills dans ce repo (supprimées le 2026-08-02 — cf. ADR
+`knowledge-base` `2026-08-02-suppression-skills-knowledge-base` : elles
+reformulaient une doctrine déjà en contexte et avaient dérivé). Les deux gestes
+qu'elles portaient :
 
-- **release-pwa** — bumper le marqueur visuel + la version `CACHE` du SW
-  pour déclencher l'auto-update PWA. À lancer à chaque release qui
-  change l'UX.
-- **smoke-test** — smoke test Playwright vérifiant que chaque app charge
-  proprement (pas d'erreur JS/console, titre attendu, rendu visible). À
-  lancer avant toute PR touchant le code d'une app.
+- **Release** → § *Versioning et propagation* ci-dessus.
+- **Smoke test** → `python3 tests/smoke.py` avant toute PR touchant le code
+  d'une app ; `tests/README.md` fait autorité (suite, moteurs, install).
+  Une app rouge se corrige dans l'app — **ne pas « assouplir le test »** sans
+  comprendre.
 
 ## Scope volontairement limité
 
