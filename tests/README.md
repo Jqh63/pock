@@ -69,3 +69,17 @@ inline in `smoke.py` after the `page.goto(...)` — keep it small enough
 to read in one screen. If a single app accretes more than ~30 lines of
 test, split it into a sibling file (`smoke_bibliotheque.py`) that
 imports the same Playwright setup.
+
+## Libs navigateur — rien à retenir
+
+Chaque suite Playwright appelle `browser_guard.ensure()` à l'import. No-op quand
+les moteurs sont sains (un `ldd`, quelques ms) et **idempotent** — plusieurs
+appels dans un même process ne coûtent rien. Quand les libs système ont sauté
+(les binaires survivent à un recreate du conteneur, leurs `.so` non), la suite
+s'arrête tout de suite **avec la commande à taper**, au lieu de mourir en cours
+de route dans du bruit d'éditeur de liens. `BROWSER_ENSURE_CMD` permet une
+réparation automatique — le guard **re-vérifie** ensuite, il n'annonce jamais
+« réparé » sur la foi d'un code de retour.
+
+Banc : `python3 tests/browser-guard-selftest.py` (contrôle positif inclus — une
+commande de réparation qui ne répare rien doit quand même échouer).

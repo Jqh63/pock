@@ -12,6 +12,12 @@ Usage: python3 km-anchor-test.py <repo_dir>
 import os, sys, json, datetime, re
 from playwright.sync_api import sync_playwright
 
+# Echoue tot et lisiblement si les libs systeme des moteurs ont saute (un
+# upgrade du sandbox vide /usr/lib, les binaires eux survivent). No-op si sain.
+from browser_guard import ensure as _ensure_browser
+
+_ensure_browser()
+
 # Single-engine run (aligned on plex-jqh-omv wake-e2e): first engine of
 # PWA_ENGINES, default chromium. PWA_ENGINES=webkit runs the Safari engine.
 ENGINE = os.environ.get("PWA_ENGINES", "chromium").split(",")[0].strip()
