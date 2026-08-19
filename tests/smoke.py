@@ -28,6 +28,12 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
+# Echoue tot et lisiblement si les libs systeme des moteurs ont saute (un
+# upgrade du sandbox vide /usr/lib, les binaires eux survivent). No-op si sain.
+from browser_guard import ensure as _ensure_browser
+
+_ensure_browser()
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCREENSHOT_DIR = Path(__file__).resolve().parent / "screenshots"
 SCREENSHOT_DIR.mkdir(exist_ok=True)
