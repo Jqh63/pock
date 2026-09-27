@@ -102,6 +102,14 @@ def rate_limited(ip: str) -> bool:
     return False
 
 
+def token_eq(given: str, expected: str) -> bool:
+    # Comparer des OCTETS : hmac.compare_digest(str, str) lève TypeError sur un
+    # caractère non-ASCII — un Authorization forgé rendait un 500 + traceback
+    # (même classe que le finding F7 du relais WoL, claude-security 2026-09-27).
+    return hmac.compare_digest(given.encode("utf-8", "surrogateescape"),
+                               expected.encode("utf-8", "surrogateescape"))
+
+
 def check_access(request: Request, authorization: str | None, app_name: str) -> str:
     """Rate limit, then token, then name validation — in that order, so an
     unauthenticated caller learns nothing (not even which names are valid)."""
@@ -117,9 +125,9 @@ def check_access(request: Request, authorization: str | None, app_name: str) -> 
     # are checked the same way; iteration order leaks nothing useful (the
     # set is tiny and every comparison is constant-time).
     allowed_apps = None  # None = full access
-    if not hmac.compare_digest(token, SHARED_TOKEN):
+    if not token_eq(token, SHARED_TOKEN):
         for scoped, apps in SCOPED_TOKENS.items():
-            if hmac.compare_digest(token, scoped):
+            if token_eq(token, scoped):
                 allowed_apps = apps
                 break
         else:
