@@ -1,0 +1,33 @@
+name: Tests
+
+# Les tests de pock-sync (sync/tests/) et le banc du hook pre-push ne
+# tournaient que si quelqu'un y pensait : rien ne les jouait sur une PR.
+# sync/tests garde une propriété de sécurité (token non-ASCII ⇒ 401, pas de
+# 500 + traceback — finding F7 du relais, même classe), donc une régression
+# partirait en prod au prochain sync/deploy.sh.
+#
+# Rapporte, ne bloque pas : pas de protection de branche sur ce plan.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Dépendances Python
+        run: python3 -m pip install --quiet 'fastapi==0.139.2' 'httpx==0.28.1' 'pytest==9.0.3'
+
+      - name: pytest sync/tests
+        working-directory: sync
+        run: python3 -m pytest -q tests/
+
+      - name: Banc du hook pre-push
+        run: bash .githooks/test-pre-push.sh
