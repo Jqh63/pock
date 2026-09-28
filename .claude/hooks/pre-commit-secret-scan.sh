@@ -29,10 +29,27 @@ PATTERNS='ghp_[A-Za-z0-9]{36}|gho_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{50,}|s
 # Ne scanne que les lignes AJOUTEES (un secret qu'on retire ne doit pas bloquer)
 HITS=$(echo "$DIFF" | grep -E '^\+' | grep -onE "$PATTERNS" 2>/dev/null | head -3)
 
+# Formes SANS prefixe (2026-09-28 : un `openssl rand -hex 32` pose en « exemple »
+# dans dash-pat/docs/HANDOFF.md etait le vrai token, invisible aux motifs ci-dessus).
+# - hex nu >= 32 car., sauf 40 (SHA git) et sauf ligne qui parle de digest/SHA/
+#   commit/pin (`@`)/plex.direct — mesure sur les 4 repos : 1 hit, le vrai.
+# - hash bcrypt, sauf le hash admin AdGuard, versionne a dessein (knowledge-base).
+# Banc : knowledge-base .claude/test-secret-scan-hook.sh (etats sains inclus).
+HEX_CTX='sha(1|224|256|384|512)?|digest|checksum|integrity|hash|commit|uses:|@|plex\.direct'
+BCRYPT_ALLOW='homelab/adguard/conf/AdGuardHome.yaml'
+ADDED=$(echo "$DIFF" | awk '/^\+\+\+ /{f=$2; sub(/^b\//,"",f); next} /^\+/{print f "\t" substr($0,2)}')
+HITS="$HITS
+$(printf '%s\n' "$ADDED" | awk -F'\t' -v a="$BCRYPT_ALLOW" '$1 != a' | cut -f2- \
+    | grep -oE '\$2[aby]\$[0-9]{2}\$[./A-Za-z0-9]{53}' | sed 's/^/bcrypt:/' | head -3)
+$(printf '%s\n' "$ADDED" | cut -f2- | grep -viE "$HEX_CTX" \
+    | grep -oE '(^|[^0-9A-Za-z])[0-9a-f]{32,}([^0-9A-Za-z]|$)' | grep -oE '[0-9a-f]{32,}' \
+    | awk 'length($0) != 40' | sed 's/^/hex:/' | head -3)"
+HITS=$(printf '%s\n' "$HITS" | grep -v '^$' | head -3)
+
 if [ -n "$HITS" ]; then
   {
     echo "✗ secret-scan : secret(s) à haute confiance détecté(s) dans le diff staged — commit bloqué."
-    echo "  Type(s) repéré(s) : $(echo "$HITS" | sed -E 's/[A-Za-z0-9_-]{6,}/****/g' | sort -u | tr '\n' ' ')"
+    echo "  Type(s) repéré(s) : $(echo "$HITS" | sed -E '/^(bcrypt|hex):/{s/:.*/:****/;b}; s/[A-Za-z0-9_-]{6,}/****/g' | sort -u | tr '\n' ' ')"
     echo "  Action : retirer du diff et déplacer en variable OMV \${VAR_NAME}, vérifier .gitignore."
     echo "  Audit complet : déléguer au subagent secret-scanner."
   } >&2
