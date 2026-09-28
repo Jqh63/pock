@@ -8,9 +8,11 @@
 # Idempotent: every step checks before acting, and /etc/pock-sync.env is
 # never overwritten (the Bearer token survives re-runs).
 #
-# Day-2 updates of app.py / the unit go through the deploy channel
-# (sync/deploy.sh → ssh wol-relay-deploy push-pock-sync-* / apply-pock-sync),
-# not through this script.
+# Day-2 updates of app.py go through the deploy channel (sync/deploy.sh →
+# push-pock-sync-app / apply-pock-sync). The UNIT does not: a unit is
+# root-equivalent, so the deploy key may not write one (relay scan finding
+# F8, 2026-09-27) — a unit change means re-running this script, which then
+# restarts the service only if the unit actually changed.
 
 set -euo pipefail
 
@@ -53,9 +55,14 @@ fi
 
 step "app + systemd unit"
 install -o pock -g pock -m 0644 "$DIR/app.py" /opt/pock-sync/app.py
+unit_changed=0
+cmp -s "$DIR/pock-sync.service" /etc/systemd/system/pock-sync.service || unit_changed=1
 install -m 0644 "$DIR/pock-sync.service" /etc/systemd/system/pock-sync.service
 systemctl daemon-reload
 systemctl enable --now pock-sync
+if [[ "$unit_changed" -eq 1 ]]; then
+  systemctl try-restart pock-sync && echo "unit changed — pock-sync restarted"
+fi
 
 step "health"
 sleep 1

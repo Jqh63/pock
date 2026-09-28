@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# deploy.sh — deploy pock-sync's code/unit to the VM through the existing
+# deploy.sh — deploy pock-sync's code to the VM through the existing
 # forced-command channel (same alias as the WoL relay).
 #
-# Pipes app.py + pock-sync.service over stdin to the VM-side dispatch.sh,
-# then triggers apply-pock-sync + pock-sync-status.
+# Pipes app.py over stdin to the VM-side dispatch.sh, then triggers
+# apply-pock-sync + pock-sync-status. The systemd unit is NOT deployed here:
+# a unit is root-equivalent, so only bootstrap-pock-sync.sh installs it
+# (relay scan finding F8, 2026-09-27). Unit change = rerun the bootstrap.
 #
 # Prerequisites:
 #   - the `wol-relay-deploy` SSH alias configured on the deploying host
@@ -23,9 +25,6 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "[deploy] push app.py ..."
 ssh "$ALIAS" push-pock-sync-app < "$DIR/app.py"
-
-echo "[deploy] push pock-sync.service ..."
-ssh "$ALIAS" push-pock-sync-service < "$DIR/pock-sync.service"
 
 echo "[deploy] apply-pock-sync ..."
 ssh "$ALIAS" apply-pock-sync
