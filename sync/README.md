@@ -74,10 +74,16 @@ forced-command channel (`wol-relay-deploy` alias, dispatch whitelist
 extended with the `pock-sync-*` verbs — see the relay repo):
 
 ```bash
-bash sync/deploy.sh        # push app.py + unit, apply, status
+bash sync/deploy.sh        # push app.py, apply, status
 ssh wol-relay-deploy pock-sync-status
 ssh wol-relay-deploy logs-pock-sync
 ```
+
+> ⚠️ **The systemd unit is not deployable through this channel** (relay scan
+> finding F8, 2026-09-27): a unit is root-equivalent, so letting the deploy
+> key write one made that key root. A change to `pock-sync.service` = rerun
+> `sync/bootstrap-pock-sync.sh` on the VM (idempotent; restarts the service
+> only if the unit changed).
 
 ### Caddy (existing site block of the relay domain)
 
