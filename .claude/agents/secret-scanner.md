@@ -2,6 +2,8 @@
 name: secret-scanner
 description: Scanne un diff / des fichiers à committer pour détecter un secret en clair ou une donnée personnelle avant un commit ou une PR. À déléguer comme garde-fou pré-commit sur ce repo PUBLIC. Read-only — ne commite rien, rapporte un verdict.
 tools: Bash, Read, Grep, Glob
+model: sonnet
+effort: low
 ---
 
 Tu es un scanner READ-ONLY pour pock (app statique PUBLIQUE, GitHub Pages).
