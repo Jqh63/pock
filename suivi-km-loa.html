@@ -192,7 +192,10 @@ const DEFAULT_VEHICLES = [
 ];
 
 let vehicles = JSON.parse(localStorage.getItem(VEHICLES_KEY) || "null");
-if (!vehicles) { vehicles = DEFAULT_VEHICLES; saveVehicles(); }
+// Exemples en mémoire seulement : les persister ici marquerait 'km' modifié
+// (hook sync) pendant le pull en vol → localAt > remoteAt → les exemples
+// écraseraient le blob serveur. Ils sont sauvegardés à la 1re modification.
+if (!vehicles) { vehicles = DEFAULT_VEHICLES; }
 // Migration: add excessCostPerKm if missing
 let needsMigration = false;
 vehicles.forEach(v => {
@@ -323,7 +326,9 @@ function render() {
   // #5 Date de dépassement projetée (au rythme moyen depuis le début du contrat).
   let overrunDate = null;
   if (canProject && paceKmPerDay > 0 && currentKm < C.totalKm && projectedKm > C.totalKm) {
-    overrunDate = new Date(now.getTime() + ((C.totalKm - currentKm) / paceKmPerDay) * 864e5);
+    // Ancré sur le DERNIER RELEVÉ (currentKm y est mesuré), pas sur aujourd'hui :
+    // sinon la date glisse d'autant que le relevé vieillit.
+    overrunDate = new Date(lastEntryDate.getTime() + ((C.totalKm - currentKm) / paceKmPerDay) * 864e5);
   }
 
   // Chart
@@ -507,7 +512,7 @@ function render() {
       ${sorted.length===0?'<div class="empty">Aucun relevé. Saisis ton compteur ci-dessus !</div>':`
         <div class="entry-list">${[...sorted].reverse().map(e=>{
           const d=new Date(e.date);const dfs=Math.max(0,daysBetween(C.start,d));const exp=Math.round(C.kmPerDay*dfs);const diff=e.km-exp;
-          const isEditing = editingId===e.id;
+          const isEditing = editingId!==null && String(editingId)===String(e.id);
           return`<div class="entry"><div class="entry-date">${isEditing?`<input class="edit-input" type="date" id="editDateInput" value="${e.date}" style="width:100%;max-width:150px">`:d.toLocaleDateString("fr-FR",{day:"numeric",month:"short",year:"numeric"})}</div><div class="entry-vals"><div class="entry-km">${isEditing?`<input class="edit-input" type="text" inputmode="numeric" pattern="[0-9]*" id="editInput" value="${esc(String(editKmVal))}" onkeydown="if(event.key==='Enter')saveEdit('${e.id}')">`:`${fmtNum(e.km)} km`}</div><div class="entry-delta" style="color:${diff>0?'#e5393f':'#0d9668'}">${diff>0?'+':''}${fmtNum(diff)} km</div></div><div class="entry-actions">${isEditing?`<button onclick="saveEdit('${e.id}')" aria-label="Valider">✓</button>`:`<button onclick="startEdit('${e.id}',${e.km},'${e.date}')" aria-label="Modifier le relevé">✎</button>`}<button class="del" onclick="deleteEntry('${e.id}')" aria-label="Supprimer le relevé">✕</button></div></div>`;
         }).join('')}</div>`}
     </div>
@@ -518,10 +523,10 @@ function render() {
 function vehicleFormHtml(v) {
   const editing = !!v;
   const name = editing ? esc(v.name) : '';
-  const start = editing ? v.startDate : '';
-  const months = editing ? v.durationMonths : '37';
-  const kmYear = editing ? v.kmPerYear : '10000';
-  const excess = editing ? (v.excessCostPerKm ?? 0) : '0.15';
+  const start = editing ? esc(v.startDate) : '';
+  const months = editing ? esc(v.durationMonths) : '37';
+  const kmYear = editing ? esc(v.kmPerYear) : '10000';
+  const excess = editing ? esc(v.excessCostPerKm ?? 0) : '0.15';
   return `<div class="card" style="border-color:var(--accent)">
     <div class="card-title">${editing ? 'Modifier le véhicule' : 'Nouveau véhicule'}</div>
     <div class="form" style="background:transparent;padding:0;margin:0">
@@ -645,6 +650,13 @@ function saveEdit(id) {
   const dateEl = document.getElementById("editDateInput");
   const date = dateEl && dateEl.value ? dateEl.value : null;
   const V = getVehicle(); if (!V) return;
+  if (date) {
+    const entryDate = new Date(date);
+    const today = new Date(); today.setHours(23, 59, 59, 999);
+    if (entryDate > today) { alert("La date ne peut pas être dans le futur."); return; }
+    const C = vehicleMeta(V);
+    if (entryDate < C.start) { alert("La date est antérieure au début du contrat (" + fmtDate(C.start) + ")."); return; }
+  }
   const updated = getEntries(V).map(e => String(e.id) === String(id) ? { ...e, km, ...(date ? { date } : {}) } : e);
   updated.sort((a, b) => a.date.localeCompare(b.date));
   setEntries(V, updated);

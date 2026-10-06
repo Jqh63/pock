@@ -338,8 +338,13 @@ let guided = null;     // { cid, phase:'rest'|'gap'|'measuring', idx, secsLeft, 
 let guidedTimerId = null;
 
 async function acquireWake() {
-  try { if ("wakeLock" in navigator && guided) guided.wakeLock = await navigator.wakeLock.request("screen"); }
-  catch (_) { /* refusé / non supporté : best-effort, l'OS gère sa veille */ }
+  const g = guided;
+  if (!g || !("wakeLock" in navigator)) return;
+  try {
+    const lock = await navigator.wakeLock.request("screen");
+    // Série arrêtée/terminée pendant l'attente : relâcher, sinon l'écran reste allumé.
+    if (guided === g) g.wakeLock = lock; else lock.release();
+  } catch (_) { /* refusé / non supporté : best-effort, l'OS gère sa veille */ }
 }
 function releaseWake() {
   try { if (guided && guided.wakeLock) guided.wakeLock.release(); } catch (_) {}

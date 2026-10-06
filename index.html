@@ -200,7 +200,9 @@
     try {
       const resp = await fetch(url + '/pock/km', { headers: { 'Authorization': 'Bearer ' + token } });
       if (resp.status === 401) { showMsg('Token refusé par le serveur.', 'err'); return; }
-      if (!resp.ok && resp.status !== 404) { showMsg('Serveur injoignable (HTTP ' + resp.status + ').', 'err'); return; }
+      // 403 = token valide mais restreint à d'autres apps (token scoped) :
+      // la sync de ses apps fonctionne, ne pas le refuser.
+      if (!resp.ok && resp.status !== 404 && resp.status !== 403) { showMsg('Serveur injoignable (HTTP ' + resp.status + ').', 'err'); return; }
     } catch (err) {
       showMsg('Serveur injoignable : ' + err.message, 'err');
       return;

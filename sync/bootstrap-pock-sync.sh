@@ -12,7 +12,7 @@
 # push-pock-sync-app / apply-pock-sync). The UNIT does not: a unit is
 # root-equivalent, so the deploy key may not write one (relay scan finding
 # F8, 2026-09-27) — a unit change means re-running this script, which then
-# restarts the service only if the unit actually changed.
+# restarts the service only if the unit (or app.py) actually changed.
 
 set -euo pipefail
 
@@ -54,19 +54,27 @@ else
 fi
 
 step "app + systemd unit"
+# app.py compte aussi : un rejeu DR avec un app.py plus récent laissait
+# tourner l'ancien code (enable --now ne redémarre pas un service actif).
+changed=0
+cmp -s "$DIR/app.py" /opt/pock-sync/app.py || changed=1
+cmp -s "$DIR/pock-sync.service" /etc/systemd/system/pock-sync.service || changed=1
 install -o pock -g pock -m 0644 "$DIR/app.py" /opt/pock-sync/app.py
-unit_changed=0
-cmp -s "$DIR/pock-sync.service" /etc/systemd/system/pock-sync.service || unit_changed=1
 install -m 0644 "$DIR/pock-sync.service" /etc/systemd/system/pock-sync.service
 systemctl daemon-reload
 systemctl enable --now pock-sync
-if [[ "$unit_changed" -eq 1 ]]; then
-  systemctl try-restart pock-sync && echo "unit changed — pock-sync restarted"
+if [[ "$changed" -eq 1 ]]; then
+  systemctl try-restart pock-sync && echo "app/unit changed — pock-sync restarted"
 fi
 
 step "health"
-sleep 1
-curl -fsS http://127.0.0.1:8001/pock/health && echo
+# Retry : sur l'e2-micro uvicorn met quelques secondes à binder (cf. deploy.sh) ;
+# une sonde unique sous set -e faisait échouer le bootstrap à tort.
+for attempt in 1 2 3 4 5; do
+  if curl -fsS http://127.0.0.1:8001/pock/health; then echo; break; fi
+  [[ "$attempt" -eq 5 ]] && { echo "health KO after 5 attempts" >&2; exit 1; }
+  sleep 2
+done
 
 cat <<'EOF'
 

@@ -7,7 +7,7 @@ un seul relevé daté d'il y a 30 j, pile au km attendu à cette date-là.
 - Code corrigé : delta = 0 (relevé conforme au prévu à SA date).
 - Code buggé   : delta ≈ -30 j × kmPerDay ≈ -820 km ('en dessous du prévu',
   artificiellement favorable) → le test DOIT échouer dessus.
-Usage: python3 km-anchor-test.py <repo_dir>
+Usage: python3 tests/km-anchor.py [repo_dir]
 """
 import os, sys, json, datetime, re
 from playwright.sync_api import sync_playwright
