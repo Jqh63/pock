@@ -3,13 +3,13 @@
 Lightweight Playwright smoke test suite. Validates that every Pock app
 loads cleanly (no uncaught JS errors, no console errors), has its
 expected title, and renders something paintable. Designed to be run
-manually before a PR or as a pre-push hook — not in CI (no GitHub
-Actions yet, repo is small enough that local-only is fine).
+manually before a PR — not in CI (the GitHub Actions workflow
+`.github/workflows/tests.yml` only runs `sync/tests` and the pre-push bench).
 
 ## Layout
 
-- `smoke.py` — entry point. Iterates over the 4 apps, loads each via
-  `file://`, captures errors, screenshots to `screenshots/`.
+- `smoke.py` — entry point. Iterates over the hub + 4 apps, loads each over
+  loopback HTTP, captures errors, screenshots to `screenshots/`.
 - `screenshots/` — output, gitignored. Re-generated on every run.
 - `README.md` — this file.
 

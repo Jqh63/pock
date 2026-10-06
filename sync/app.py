@@ -32,6 +32,10 @@ from collections import defaultdict, deque
 from fastapi import FastAPI, Header, HTTPException, Request, Response
 
 SHARED_TOKEN = os.environ["POCK_SYNC_TOKEN"]
+if not SHARED_TOKEN.strip():
+    # Fail-safe : un token vide rendrait le blob store lisible/écrivable sans
+    # en-tête Authorization (le token absent vaut "", qui égalerait "").
+    raise SystemExit("POCK_SYNC_TOKEN is empty — refusing to start")
 
 # Optional scoped tokens for sharing a subset of apps with another person
 # (e.g. shared vehicle tracking, private book list). Format, space-separated:
@@ -54,8 +58,8 @@ MAX_BLOB_BYTES = int(os.environ.get("POCK_SYNC_MAX_BLOB_BYTES", str(256 * 1024))
 APP_NAME_RE = re.compile(r"^[a-z0-9-]{1,32}$")
 
 # Same in-memory sliding-window pattern as the WoL relay (single uvicorn
-# worker, see pock-sync.service). Sized for a sync client (pull = 3 GETs
-# per app load), generous for legit use, tight for token brute-force.
+# worker, see pock-sync.service). Sized for a sync client (pull = 1 GET per
+# synced app on each page load), generous for legit use, tight for token brute-force.
 RATE_LIMIT_WINDOW_S = 60
 RATE_LIMIT_MAX_REQ = 60
 MAX_TRACKED_IPS = 4096
@@ -176,7 +180,8 @@ async def put_blob(app_name: str, request: Request, authorization: str | None = 
         raise HTTPException(status_code=413, detail="blob too large")
     try:
         parsed = json.loads(body)
-    except ValueError:
+    except (ValueError, RecursionError):
+        # RecursionError : JSON très imbriqué ("[[[[…") sous le cap de taille → 500 sinon
         raise HTTPException(status_code=400, detail="invalid JSON")
     if not isinstance(parsed, dict):
         raise HTTPException(status_code=400, detail="blob must be a JSON object")

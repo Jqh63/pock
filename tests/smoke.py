@@ -2,9 +2,9 @@
 """
 Playwright smoke test for all Pock apps.
 
-For each of the 4 apps:
-  - Loads the HTML via file:// (no server needed — apps are static and
-    self-contained, no fetches to localhost or external APIs).
+For each app in APPS (hub + 4 apps):
+  - Loads the HTML over a loopback HTTP server (see serve_repo below —
+    WebKit blocks manifest.json on file://).
   - Asserts the page reaches DOMContentLoaded without uncaught JS errors
     or unhandled promise rejections.
   - Asserts `<title>` and `<h1>` (or app-specific landmark) are present.

@@ -4,7 +4,10 @@
 function esc(s) {
   const d = document.createElement('div');
   d.textContent = s == null ? '' : String(s);
-  return d.innerHTML;
+  // innerHTML n'échappe que & < > : les guillemets doivent l'être aussi, sinon
+  // une valeur injectée dans value="${esc(x)}" ferme l'attribut (troncature
+  // d'un titre contenant ", ou injection d'attributs depuis un blob partagé).
+  return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 // Unique id: timestamp base36 + random suffix (no collision even in same ms)
@@ -266,6 +269,12 @@ document.addEventListener('visibilitychange', () => {
 
 pockSyncPullAll();
 
+// État propre à l'appareil, jamais restauré depuis un export : un vieux
+// pock-sync-meta écraserait les timestamps posés par l'import (la sync
+// ré-écraserait alors les données importées), et un pock-device importé
+// ferait partager le blob privé (hta) entre deux appareils.
+const POCK_DEVICE_LOCAL = { 'pock-device': true, 'pock-sync-meta': true };
+
 function pockImportFromJSON(json, mode) {
   mode = mode || 'merge'; // 'merge' | 'replace'
   let obj;
@@ -275,11 +284,11 @@ function pockImportFromJSON(json, mode) {
     throw new Error('Format invalide — ce fichier ne ressemble pas à un export Pock');
   }
   if (mode === 'replace') {
-    pockListKeys().forEach(k => localStorage.removeItem(k));
+    pockListKeys().forEach(k => { if (!POCK_DEVICE_LOCAL[k]) localStorage.removeItem(k); });
   }
   let count = 0;
   Object.entries(obj.data).forEach(([k, v]) => {
-    if (typeof k === 'string' && k.startsWith(POCK_PREFIX) && typeof v === 'string') {
+    if (typeof k === 'string' && k.startsWith(POCK_PREFIX) && !POCK_DEVICE_LOCAL[k] && typeof v === 'string') {
       localStorage.setItem(k, v);
       count++;
     }
