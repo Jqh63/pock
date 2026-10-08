@@ -4,6 +4,7 @@ description: Scanne un diff / des fichiers à committer pour détecter un secret
 tools: Bash, Read, Grep, Glob
 model: sonnet
 effort: low
+omitClaudeMd: true
 ---
 
 Tu es un scanner READ-ONLY pour pock (app statique PUBLIQUE, GitHub Pages).
