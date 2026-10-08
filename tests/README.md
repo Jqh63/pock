@@ -10,6 +10,11 @@ manually before a PR — not in CI (the GitHub Actions workflow
 
 - `smoke.py` — entry point. Iterates over the hub + 4 apps, loads each over
   loopback HTTP, captures errors, screenshots to `screenshots/`.
+- `import-guard.py` — the entry guard of `common.js`: an import file or a
+  shared sync blob whose raw-interpolated fields (`id`, `color`, `bg`, `date`,
+  `startDate`, `km`) could break out of their JS string or HTML attribute is
+  refused **before any write**; real app formats must still pass. Single-engine,
+  like `km-anchor.py`. Run it after touching `common.js` import/sync code.
 - `screenshots/` — output, gitignored. Re-generated on every run.
 - `README.md` — this file.
 
