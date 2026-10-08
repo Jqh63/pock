@@ -10,6 +10,38 @@ function esc(s) {
   return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+// Champs que les apps interpolent BRUTS dans du HTML : onclick="f('${x.id}')",
+// style="color:${x.color}", value="${e.date}", startEdit(…,${e.km},…). esc()
+// n'y est pas appliqué (~30 sites) ; on garde donc la FRONTIÈRE : tout ce qui
+// entre depuis l'extérieur (import de fichier, blob de sync partagé) est refusé
+// si l'un de ces champs peut sortir de sa chaîne ou de son attribut. Liste
+// blanche de caractères, pas de format : les dates de covoiturage sont en
+// « 08/10/2026 », celles du km en ISO — seuls guillemets, parenthèses, ; < > &
+// \ ` = sont exclus.
+const POCK_SAFE_FIELDS = { id: 1, color: 1, bg: 1, date: 1, startDate: 1 };
+const POCK_SAFE_RE = /^[A-Za-z0-9 _#.\/:+-]{0,64}$/;
+const POCK_NUM_RE = /^-?\d+(\.\d+)?$/;
+
+// Chemin du premier champ dangereux d'une valeur localStorage, ou null si sûre.
+function pockUnsafeField(str) {
+  let v;
+  try { v = JSON.parse(str); } catch (_) { return null; } // scalaire brut : jamais interpolé
+  const walk = (o, path) => {
+    if (!o || typeof o !== 'object') return null;
+    for (const k of Object.keys(o)) {
+      const x = o[k], at = path + (Array.isArray(o) ? '[' + k + ']' : '.' + k);
+      if (x != null && POCK_SAFE_FIELDS[k] && typeof x !== 'number'
+          && !(typeof x === 'string' && POCK_SAFE_RE.test(x))) return at;
+      if (x != null && k === 'km' && !(typeof x === 'number' && isFinite(x))
+          && !(typeof x === 'string' && (x === '' || POCK_NUM_RE.test(x)))) return at;
+      const r = walk(x, at);
+      if (r) return r;
+    }
+    return null;
+  };
+  return walk(v, '');
+}
+
 // Unique id: timestamp base36 + random suffix (no collision even in same ms)
 function genId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -205,6 +237,12 @@ function pockSyncMarkDirty(app) {
 function pockSyncApply(app, data) {
   const current = pockSyncCollect(app);
   if (JSON.stringify(current) === JSON.stringify(data)) return false;
+  // Blob partagé = entrée externe : un seul champ dangereux et rien n'est
+  // appliqué (le local reste, et sera re-poussé à la prochaine écriture).
+  for (const k of Object.keys(data)) {
+    const bad = typeof data[k] === 'string' && pockUnsafeField(data[k]);
+    if (bad) { console.warn('pock sync: blob ' + app + ' refusé (' + k + bad + ')'); return false; }
+  }
   pockSyncApplying = true;
   try {
     Object.keys(current).forEach(k => localStorage.removeItem(k));
@@ -282,6 +320,11 @@ function pockImportFromJSON(json, mode) {
   catch (_) { throw new Error('JSON invalide'); }
   if (!obj || typeof obj !== 'object' || !obj.data || typeof obj.data !== 'object') {
     throw new Error('Format invalide — ce fichier ne ressemble pas à un export Pock');
+  }
+  // Validé AVANT toute écriture (et avant l'effacement du mode replace).
+  for (const [k, v] of Object.entries(obj.data)) {
+    const bad = typeof v === 'string' && pockUnsafeField(v);
+    if (bad) throw new Error('Import refusé — champ non sûr : ' + k + bad);
   }
   if (mode === 'replace') {
     pockListKeys().forEach(k => { if (!POCK_DEVICE_LOCAL[k]) localStorage.removeItem(k); });

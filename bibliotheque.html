@@ -317,7 +317,7 @@ function doImport() {
   if (!parsed.length) return;
   // Stagger addedAt by 1ms per entry so date sort is deterministic after batch import
   const base = Date.now();
-  parsed.forEach((b, i) => books.push({ id: genId(), status: "to_read", addedAt: base + i, ...b }));
+  parsed.forEach((b, i) => books.push({ status: "to_read", addedAt: base + i, ...b, id: genId() }));
   save(); showImport = false; render();
 }
 
