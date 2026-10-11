@@ -41,6 +41,7 @@ La roadmap, les décisions d'architecture et le contexte plus large vivent dans 
   après fusion (les apps gardent leurs données en mémoire), garde 1/10 s. Hook
   `Storage.prototype.setItem/removeItem` (filtré localStorage + préfixes
   d'app) : tout point de sauvegarde est couvert sans câblage par app.
+- `navigator.storage.persist()` au chargement (`common.js`, depuis 2026-10-11) : le navigateur ne doit pas évincer le localStorage (Tension n'a pas d'autre copie sans sync) ; l'état accordé se lit dans le diagnostic du hub (« Stockage : … »).
 - PWA complète (manifest, icônes PNG, auto-update via `controllerchange` avec garde anti-boucle)
 - Structure à plat : tous les fichiers à la racine du repo
 - Base partagée : `common.css` (reset, tokens, focus, fade) + `common.js` (esc, genId, SW reg, export/import, sync)

@@ -79,6 +79,14 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+// Données = localStorage seul (Tension n'a pas d'autre copie sans sync) :
+// demander au navigateur de ne pas les évincer (Safari efface le stockage
+// d'un site non installé resté inutilisé quelques jours). Refus ou API
+// absente : sans effet ; l'état se lit dans le diagnostic du hub.
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persist().catch(() => {});
+}
+
 // ---------- Export / Import of all Pock data ----------
 
 const POCK_PREFIX = 'pock-';
