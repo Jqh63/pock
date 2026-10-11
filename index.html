@@ -136,7 +136,8 @@
     <h3 style="margin-top:16px">État</h3>
     <p style="margin-bottom:6px" id="diagVersion">Version : —</p>
     <p style="margin-bottom:6px" id="diagSw">Service worker : —</p>
-    <p style="margin-bottom:0" id="diagSync">Sync : —</p>
+    <p style="margin-bottom:6px" id="diagSync">Sync : —</p>
+    <p style="margin-bottom:0" id="diagStorage">Stockage : —</p>
     <div id="dataMsg"></div>
   </div>
 
@@ -225,6 +226,13 @@
   // Panneau État — version dérivée du nom du cache SW (source unique,
   // pattern repris de la PWA WoL : pas de marqueur codé en dur qui drift).
   function refreshDiag() {
+    if (navigator.storage && navigator.storage.persisted) {
+      navigator.storage.persisted().then(p => {
+        document.getElementById('diagStorage').textContent = 'Stockage : ' + (p
+          ? 'persistant'
+          : 'peut être effacé par le navigateur (installer l\'app sur l\'écran d\'accueil, ou activer la sync)');
+      }).catch(() => {});
+    }
     if (window.caches) {
       caches.keys().then(names => {
         const ours = names.filter(n => n.indexOf('pock-v') === 0).sort();
