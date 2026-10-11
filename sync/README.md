@@ -32,11 +32,19 @@ sliding-window rate limit (60 req/min) applied before the token check.
 Blob format (written by the client, stored verbatim):
 
 ```json
-{ "version": 1, "updatedAt": 1718000000000, "data": { "pock-km-vehicles": "…" } }
+{ "version": 2, "base": 1717999000000, "updatedAt": 1718000000000, "data": { "pock-km-vehicles": "…" } }
 ```
 
-Conflict resolution is client-side last-write-wins per app, using
-`updatedAt` (device clock, ms).
+`updatedAt` is a version id (set by the writer, > `base`), not a clock
+that decides who wins. A PUT carrying `base` is **conditional**: if the
+stored blob's `updatedAt` ≠ `base` (`null` = "no blob yet"), the server
+answers **409** and stores nothing. The client then re-reads the blob
+and runs a 3-way merge per key against the last version it synced
+(lists of objects with an `id` are merged item by item; a scalar changed
+on both sides takes the server value), then pushes the result. A PUT
+without `base` (client from before 2026-10-11, still cached by the SW)
+is accepted as before. Benches: `sync/tests/test_conflict.py` (server),
+`tests/sync-conflict.py` (two devices end to end).
 
 ## Sharing with another person (scoped tokens)
 
@@ -49,10 +57,8 @@ local-only on their devices (the PWA degrades silently on 403, by
 construction of the client sync layer). The full token keeps access to
 everything.
 
-Trade-offs (accepted): conflicts stay last-write-wins per app — two
-near-simultaneous writes and the later one wins silently. Fine for
-spaced-out usage (monthly odometer readings); revisit with per-record
-merge if concurrent editing becomes real. No per-person private space
+Concurrent writes are merged (see blob format above): two people
+adding odometer readings from their own phones both keep theirs. No per-person private space
 *within* a shared app — that would need namespaced blobs.
 
 ## Deploy (mirror of the WoL relay procedure)

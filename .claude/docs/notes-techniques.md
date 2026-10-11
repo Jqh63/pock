@@ -31,8 +31,14 @@ La roadmap, les décisions d'architecture et le contexte plus large vivent dans 
 - **Sync opt-in** (v16) : couche dans `common.js` + config sur le hub
   (URL + token Bearer) vers le blob store `sync/` self-hébergé. Pull au
   chargement, push debounced 1,5 s (flush `keepalive` quand l'onglet
-  passe en arrière-plan), last-write-wins par app (`updatedAt`), reload
-  unique gardé par sessionStorage si le serveur est plus récent. Hook
+  passe en arrière-plan). Depuis le 2026-10-11 : PUT **conditionnel**
+  (`base` = version serveur sur laquelle on a travaillé, 409 si elle a
+  bougé) puis **fusion à 3 voies** par clé contre la dernière version
+  synchronisée (`pock-sync-state`) — listes d'objets à `id` fusionnées
+  élément par élément, scalaire changé des deux côtés ⇒ serveur. Avant :
+  last-write-wins sur le blob entier, qui perdait la saisie d'un appareil
+  en retard et effaçait les données d'un appareil à sa 1ʳᵉ sync. Reload
+  après fusion (les apps gardent leurs données en mémoire), garde 1/10 s. Hook
   `Storage.prototype.setItem/removeItem` (filtré localStorage + préfixes
   d'app) : tout point de sauvegarde est couvert sans câblage par app.
 - PWA complète (manifest, icônes PNG, auto-update via `controllerchange` avec garde anti-boucle)
@@ -83,7 +89,7 @@ CLAUDE.md               ← Router instructions IA (ce fichier)
 - `pock-km-active` — id du dernier véhicule sélectionné
 - `pock-covoit-history` — historique covoiturage (20 derniers calculs)
 - `pock-biblio-books` — collection de livres : `[{id, title, author, note, status, addedAt}]` — à l'import en masse, `addedAt` est staggéré (`base + index`) pour un tri date stable
-- `pock-sync-url` / `pock-sync-token` / `pock-sync-meta` — config sync + timestamps last-write par app (uniquement si la sync est activée). Ces clés ne matchent aucun préfixe d'app → jamais incluses dans les blobs poussés (mais incluses dans l'export JSON `pock-*` du hub)
+- `pock-sync-url` / `pock-sync-token` / `pock-sync-state` — config sync + état par app (`base`, `snap`, `dirty` ; `pock-sync-meta` = état d'avant 2026-10-11, inutilisé) (uniquement si la sync est activée). Ces clés ne matchent aucun préfixe d'app → jamais incluses dans les blobs poussés (mais incluses dans l'export JSON `pock-*` du hub)
 
 ## Export / Import
 

@@ -245,10 +245,12 @@
     const cfg = pockSyncConfig();
     let syncTxt = 'désactivée';
     if (cfg) {
-      const meta = pockSyncMeta();
-      const stamps = Object.keys(meta).map(k => meta[k]).filter(Boolean);
+      const st = pockSyncState();
+      const stamps = Object.keys(st).map(k => st[k].base).filter(Boolean);
       const last = stamps.length ? new Date(Math.max.apply(null, stamps)).toLocaleString() : 'jamais';
-      syncTxt = 'activée — dernière modification suivie : ' + last;
+      const pending = Object.keys(st).filter(k => st[k].dirty);
+      syncTxt = 'activée — dernière version synchronisée : ' + last
+        + (pending.length ? ' — en attente d\'envoi : ' + pending.join(', ') : '');
     }
     document.getElementById('diagSync').textContent = 'Sync : ' + syncTxt;
   }
