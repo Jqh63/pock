@@ -89,14 +89,14 @@ CLAUDE.md               ← Router instructions IA (ce fichier)
 - `pock-km-active` — id du dernier véhicule sélectionné
 - `pock-covoit-history` — historique covoiturage (20 derniers calculs)
 - `pock-biblio-books` — collection de livres : `[{id, title, author, note, status, addedAt}]` — à l'import en masse, `addedAt` est staggéré (`base + index`) pour un tri date stable
-- `pock-sync-url` / `pock-sync-token` / `pock-sync-state` — config sync + état par app (`base`, `snap`, `dirty` ; `pock-sync-meta` = état d'avant 2026-10-11, inutilisé) (uniquement si la sync est activée). Ces clés ne matchent aucun préfixe d'app → jamais incluses dans les blobs poussés (mais incluses dans l'export JSON `pock-*` du hub)
+- `pock-sync-url` / `pock-sync-token` / `pock-sync-state` — config sync + état par app (`base`, `snap`, `dirty` ; `pock-sync-meta` = état d'avant 2026-10-11, inutilisé) (uniquement si la sync est activée). Ces clés ne matchent aucun préfixe d'app → jamais incluses dans les blobs poussés, ni dans l'export JSON du hub (`POCK_DEVICE_LOCAL`, depuis 2026-10-11 : le token sortait dans le fichier de sauvegarde)
 
 ## Export / Import
 
 Le hub `index.html` contient un panneau "Données" (bouton dépliable en bas de page). Il utilise `common.js` :
 
-- **Export** : `pockExportToFile()` dump toutes les clés `pock-*` dans un fichier JSON `pock-backup-YYYY-MM-DD.json` (format `{version:1, exportedAt, data:{clé:valeur…}}`)
-- **Import** : `pockImportFromJSON(text, mode)` avec mode `merge` (par défaut, écrit par-dessus) ou `replace` (supprime d'abord toutes les clés `pock-*` existantes)
+- **Export** : `pockExportToFile()` dump les clés `pock-*` hors état propre à l'appareil (`POCK_DEVICE_LOCAL` : config et état de sync, id d'appareil) dans un fichier JSON `pock-backup-YYYY-MM-DD.json` (format `{version:1, exportedAt, data:{clé:valeur…}}`)
+- **Import** : `pockImportFromJSON(text, mode)` avec mode `merge` (par défaut, écrit par-dessus) ou `replace` (supprime d'abord les clés `pock-*` existantes, hors `POCK_DEVICE_LOCAL` : la config de sync survit)
 - Confirmation native `confirm()` avant import, plus explicite pour le mode `replace`
 
 ## Données par défaut (premier lancement)

@@ -63,6 +63,17 @@ with sync_playwright() as p:
         return {changed, v: localStorage.getItem('pock-km-vehicles')}; }""",
                     json.loads(EVIL["id quote"])["data"])
     check(r["changed"] is False and r["v"] == "[]", f"D blob de sync dangereux ignoré : {r}")
+    # config de sync = propre à l'appareil : le token ne sort pas dans le
+    # fichier d'export (partagé, il ouvrirait tous les blobs), un import ne la
+    # restaure pas et un import « remplacer » ne l'efface pas.
+    r = pg.evaluate("""() => { localStorage.clear();
+        localStorage.setItem('pock-sync-url', 'https://s.example'); localStorage.setItem('pock-sync-token', 'tok');
+        localStorage.setItem('pock-km-vehicles', '[]');
+        const keys = Object.keys(pockExportAll().data);
+        pockImportFromJSON({version: 1, data: {'pock-sync-token': 'other', 'pock-km-vehicles': '[]'}}, 'replace');
+        return {keys, url: localStorage.getItem('pock-sync-url'), tok: localStorage.getItem('pock-sync-token')}; }""")
+    check(r["keys"] == ["pock-km-vehicles"], f"E export sans config de sync : {r['keys']}")
+    check(r["url"] == "https://s.example" and r["tok"] == "tok", f"F import : config de sync intacte : {r}")
     b.close()
 
 print("import-guard : OK" if not fail else "import-guard : ECHEC")

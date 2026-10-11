@@ -94,7 +94,7 @@ function pockListKeys() {
 
 function pockExportAll() {
   const data = {};
-  pockListKeys().forEach(k => { data[k] = localStorage.getItem(k); });
+  pockListKeys().forEach(k => { if (!POCK_DEVICE_LOCAL[k]) data[k] = localStorage.getItem(k); });
   return { version: 1, exportedAt: new Date().toISOString(), data };
 }
 
@@ -404,11 +404,16 @@ document.addEventListener('visibilitychange', () => {
 
 pockSyncPullAll();
 
-// État propre à l'appareil, jamais restauré depuis un export : un vieil état
-// de sync ferait croire l'appareil à jour (la sync écraserait alors les
-// données importées), et un pock-device importé ferait partager le blob
-// privé (hta) entre deux appareils. pock-sync-meta : état d'avant 2026-10-11.
-const POCK_DEVICE_LOCAL = { 'pock-device': true, 'pock-sync-state': true, 'pock-sync-meta': true };
+// État propre à l'appareil, ni exporté ni restauré par un import : un vieil
+// état de sync ferait croire l'appareil à jour (la sync écraserait alors les
+// données importées), un pock-device importé ferait partager le blob privé
+// (hta) entre deux appareils, et le token de sync dans un fichier de
+// sauvegarde partagé ouvrirait tous les blobs (audit 2026-10-11).
+// pock-sync-meta : état d'avant 2026-10-11.
+const POCK_DEVICE_LOCAL = {
+  'pock-device': true, 'pock-sync-state': true, 'pock-sync-meta': true,
+  'pock-sync-url': true, 'pock-sync-token': true
+};
 
 function pockImportFromJSON(json, mode) {
   mode = mode || 'merge'; // 'merge' | 'replace'
