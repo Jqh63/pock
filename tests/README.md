@@ -15,6 +15,10 @@ manually before a PR — not in CI (the GitHub Actions workflow
   `startDate`, `km`) could break out of their JS string or HTML attribute is
   refused **before any write**; real app formats must still pass. Single-engine,
   like `km-anchor.py`. Run it after touching `common.js` import/sync code.
+- `sync-conflict.py` — two devices sharing the `km` blob of the real
+  `sync/app.py` (in-process): concurrent entries, a delete on a stale device
+  and a first sync with existing local data must all end merged, nothing
+  lost. Run it after touching the sync code of `common.js` or `sync/app.py`.
 - `screenshots/` — output, gitignored. Re-generated on every run.
 - `README.md` — this file.
 

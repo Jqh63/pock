@@ -54,7 +54,7 @@ From the hub, export all your Pock data to a single JSON file, or import back. S
 
 ### 🔄 Sync (opt-in)
 
-From the hub, point Pock at a self-hosted [sync server](sync/README.md) (URL + Bearer token, entered once per device). Each app then keeps a server-side copy of its data: pull on load, debounced push on change, last-write-wins. localStorage stays the source for the UI and offline use — if the server is unreachable, everything keeps working and sync resumes later. Without configuration, nothing is ever sent anywhere.
+From the hub, point Pock at a self-hosted [sync server](sync/README.md) (URL + Bearer token, entered once per device). Each app then keeps a server-side copy of its data: pull on load, debounced push on change; two devices editing the same app are merged (entries added or removed on either side are kept), never overwritten. localStorage stays the source for the UI and offline use — if the server is unreachable, everything keeps working and sync resumes later. Without configuration, nothing is ever sent anywhere.
 
 **Sharing model — per app, one token.** A single token enables both sync and backup; what gets shared is a property of the app, not the token:
 
@@ -116,7 +116,7 @@ Storage keys used:
 - `pock-biblio-books` — book collection
 - `pock-covoit-history` — carpooling history
 - `pock-hta-measures` / `pock-hta-campaigns` — blood-pressure measures and cycles
-- `pock-sync-url` / `pock-sync-token` / `pock-sync-meta` — sync config + per-app last-write timestamps (only when sync is enabled)
+- `pock-sync-url` / `pock-sync-token` / `pock-sync-state` — sync config + per-app sync state (only when sync is enabled; `pock-sync-meta` = pre-2026-10-11 state, now unused)
 - `pock-device` — random per-device id used to namespace private-app blobs (`hta`); local only, never synced
 
 ## License

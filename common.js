@@ -115,7 +115,8 @@ function pockExportToFile() {
 // ---------- Sync (opt-in) — cf. sync/README.md ----------
 // One JSON blob per app on a personal server (Bearer token, configured
 // from the hub). localStorage stays the source for the UI and offline:
-// pull on load, debounced push on change, last-write-wins per app.
+// pull on load, debounced push on change; conditional writes + 3-way
+// merge so two devices never erase each other's entries.
 // Without pock-sync-url + pock-sync-token configured, nothing runs.
 
 const POCK_SYNC_APPS = { km: 'pock-km-', covoit: 'pock-covoit-', biblio: 'pock-biblio-', hta: 'pock-hta-' };
@@ -156,9 +157,21 @@ function pockSyncConfig() {
   return { url: url.replace(/\/+$/, ''), token: token };
 }
 
-function pockSyncMeta() {
-  try { return JSON.parse(localStorage.getItem('pock-sync-meta')) || {}; }
+// État de sync par app, propre à l'appareil (jamais exporté ni synchronisé) :
+//   base  = updatedAt de la dernière version serveur connue (null : pas de blob)
+//   snap  = les données de cette version — ancêtre commun de la fusion
+//   dirty = modifs locales pas encore poussées
+// App absente = jamais synchronisée sur cet appareil (ou état d'avant le
+// 2026-10-11) : sa 1ʳᵉ sync FUSIONNE local et serveur, rien n'est effacé.
+function pockSyncState() {
+  try { return JSON.parse(localStorage.getItem('pock-sync-state')) || {}; }
   catch (_) { return {}; }
+}
+
+function pockSyncSaveState(app, st) {
+  const all = pockSyncState();
+  all[app] = st;
+  localStorage.setItem('pock-sync-state', JSON.stringify(all));
 }
 
 function pockSyncAppFor(key) {
@@ -177,6 +190,52 @@ function pockSyncCollect(app) {
   return data;
 }
 
+// Égalité de deux jeux { clé: chaîne } indépendante de l'ordre des clés.
+function pockSyncSame(a, b) {
+  const ka = Object.keys(a), kb = Object.keys(b);
+  return ka.length === kb.length && ka.every(k => a[k] === b[k]);
+}
+
+// Fusion à 3 voies (b = version commune) : ce qu'un seul côté a changé est
+// gardé ; les deux côtés ont changé ⇒ `both`, ou le serveur par défaut.
+function pockSyncMerge3(b, l, r, both) {
+  if (l === r) return l;
+  if (l === b) return r;
+  if (r === b) return l;
+  return both ? both(b, l, r) : r;
+}
+
+// Même clé changée des deux côtés : si ce sont des listes d'objets à `id`
+// (véhicules, relevés km, mesures, cycles, livres…), fusion élément par
+// élément — deux saisies concurrentes sont toutes deux gardées, une
+// suppression d'un côté s'applique si l'autre n'a pas modifié l'élément.
+// Sinon (réglage scalaire) le serveur l'emporte.
+function pockSyncMergeLists(b, l, r) {
+  const byId = s => {
+    let a;
+    try { a = JSON.parse(s === undefined ? '[]' : s); } catch (_) { return null; }
+    if (!Array.isArray(a) || !a.every(x => x && typeof x === 'object' && 'id' in x)) return null;
+    return new Map(a.map(x => [String(x.id), JSON.stringify(x)]));
+  };
+  const mb = byId(b), ml = byId(l), mr = byId(r);
+  if (!mb || !ml || !mr) return r;
+  const out = [];
+  new Set([...ml.keys(), ...mr.keys()]).forEach(id => {
+    const v = pockSyncMerge3(mb.get(id), ml.get(id), mr.get(id));
+    if (v !== undefined) out.push(JSON.parse(v));
+  });
+  return JSON.stringify(out);
+}
+
+function pockSyncMerge(base, local, remote) {
+  const out = {};
+  new Set([...Object.keys(local), ...Object.keys(remote)]).forEach(k => {
+    const v = pockSyncMerge3(base[k], local[k], remote[k], pockSyncMergeLists);
+    if (v !== undefined) out[k] = v;
+  });
+  return out;
+}
+
 function pockSyncRequest(cfg, method, app, body, keepalive) {
   const opts = {
     method: method,
@@ -190,19 +249,31 @@ function pockSyncRequest(cfg, method, app, body, keepalive) {
   return fetch(cfg.url + '/pock/' + pockSyncBlob(app), opts);
 }
 
-function pockSyncPush(app, keepalive) {
+// Écriture conditionnelle : `base` dit au serveur sur quelle version on a
+// travaillé ; s'il a bougé entre-temps (autre appareil) → 409 → on relit et
+// on fusionne au lieu d'écraser. `depth` borne la boucle 409 → relecture.
+function pockSyncPush(app, keepalive, depth) {
   const cfg = pockSyncConfig();
   if (!cfg) return Promise.resolve();
-  const blob = { version: 1, updatedAt: pockSyncMeta()[app] || Date.now(), data: pockSyncCollect(app) };
-  return pockSyncRequest(cfg, 'PUT', app, blob, keepalive)
-    .catch(() => { /* offline / serveur down : sync différée, re-push au prochain load */ });
+  const st = pockSyncState()[app];
+  if (!st || !('base' in st)) return pockSyncRun(app, depth); // jamais synchronisée : fusionner d'abord
+  const data = pockSyncCollect(app);
+  const updatedAt = Math.max(Date.now(), (st.base || 0) + 1);
+  return pockSyncRequest(cfg, 'PUT', app, { version: 2, base: st.base, updatedAt: updatedAt, data: data }, keepalive)
+    .then(resp => {
+      if (resp.status === 409 && (depth || 0) < 3) {
+        return pockSyncRun(app, (depth || 0) + 1).then(changed => { if (changed) pockSyncReload(); });
+      }
+      if (!resp.ok) return;
+      pockSyncSaveState(app, { base: updatedAt, snap: data, dirty: !pockSyncSame(pockSyncCollect(app), data) });
+    })
+    .catch(() => { /* offline / serveur down : dirty reste, re-push au prochain load */ });
 }
 
 function pockSyncMarkDirty(app) {
   if (pockSyncApplying || !pockSyncConfig()) return;
-  const meta = pockSyncMeta();
-  meta[app] = Date.now();
-  localStorage.setItem('pock-sync-meta', JSON.stringify(meta));
+  const st = pockSyncState()[app] || {};
+  if (!st.dirty) { st.dirty = true; pockSyncSaveState(app, st); }
   clearTimeout(pockSyncTimers[app]);
   pockSyncTimers[app] = setTimeout(() => {
     pockSyncTimers[app] = null;
@@ -232,17 +303,21 @@ function pockSyncMarkDirty(app) {
   };
 })();
 
-// Replace the local group keys with the remote ones. Returns true if
-// anything actually changed (drives the one-shot reload).
-function pockSyncApply(app, data) {
-  const current = pockSyncCollect(app);
-  if (JSON.stringify(current) === JSON.stringify(data)) return false;
-  // Blob partagé = entrée externe : un seul champ dangereux et rien n'est
-  // appliqué (le local reste, et sera re-poussé à la prochaine écriture).
+// Replace the local group keys with `data`. Returns true if anything
+// actually changed (drives the reload).
+// Blob partagé = entrée externe : un seul champ dangereux et rien n'est
+// appliqué (le local reste, et remplace le blob au push qui suit).
+function pockSyncUnsafe(app, data) {
   for (const k of Object.keys(data)) {
     const bad = typeof data[k] === 'string' && pockUnsafeField(data[k]);
-    if (bad) { console.warn('pock sync: blob ' + app + ' refusé (' + k + bad + ')'); return false; }
+    if (bad) { console.warn('pock sync: blob ' + app + ' refusé (' + k + bad + ')'); return true; }
   }
+  return false;
+}
+
+function pockSyncApply(app, data) {
+  const current = pockSyncCollect(app);
+  if (pockSyncSame(current, data) || pockSyncUnsafe(app, data)) return false;
   pockSyncApplying = true;
   try {
     Object.keys(current).forEach(k => localStorage.removeItem(k));
@@ -255,41 +330,63 @@ function pockSyncApply(app, data) {
   return true;
 }
 
-async function pockSyncPullAll() {
+// Un cycle pour une app : relire le serveur, fusionner si un autre appareil
+// a écrit depuis notre dernière sync, pousser s'il reste du local. Renvoie
+// true si les données locales ont changé (la page doit recharger).
+async function pockSyncRun(app, depth) {
   const cfg = pockSyncConfig();
-  if (!cfg) return;
+  if (!cfg) return false;
+  let remote = null;
+  try {
+    const resp = await pockSyncRequest(cfg, 'GET', app);
+    if (resp.status !== 404) {
+      if (!resp.ok) return false;
+      remote = await resp.json();
+    }
+  } catch (_) { return false; } // offline / serveur down : l'app reste 100 % fonctionnelle
+  const st = pockSyncState()[app];
+  const synced = !!st && 'base' in st;
+  const local = pockSyncCollect(app);
+  const remoteAt = remote ? remote.updatedAt : null;
+  if (synced && st.base === remoteAt) {            // serveur inchangé depuis notre dernière sync
+    if (st.dirty) await pockSyncPush(app, false, depth);
+    return false;
+  }
+  if (!remote) {                                    // pas (plus) de blob : pousser le local
+    if (Object.keys(local).length) {
+      pockSyncSaveState(app, { base: null, snap: {}, dirty: true });
+      await pockSyncPush(app, false, depth);
+    }
+    return false;
+  }
+  const remoteData = remote.data || {};
+  const merged = pockSyncUnsafe(app, remoteData) ? local
+    : (synced && !st.dirty) ? remoteData
+    : pockSyncMerge((synced && st.snap) || {}, local, remoteData);
+  const changed = pockSyncApply(app, merged);
+  const dirty = !pockSyncSame(merged, remoteData);
+  pockSyncSaveState(app, { base: remoteAt, snap: remoteData, dirty: dirty });
+  if (dirty) await pockSyncPush(app, false, depth);
+  return changed;
+}
+
+// Les apps rendent depuis localStorage au chargement et gardent leurs données
+// en mémoire : après une fusion, recharger — sinon la prochaine sauvegarde
+// repartirait de la copie en mémoire. Garde anti-boucle : 1 reload / 10 s.
+function pockSyncReload() {
+  const last = +sessionStorage.getItem('pock-sync-reloaded') || 0;
+  if (Date.now() - last < 10000) return;
+  sessionStorage.setItem('pock-sync-reloaded', String(Date.now()));
+  window.location.reload();
+}
+
+async function pockSyncPullAll() {
+  if (!pockSyncConfig()) return;
   let changed = false;
   for (const app in POCK_SYNC_APPS) {
-    try {
-      const resp = await pockSyncRequest(cfg, 'GET', app);
-      if (resp.status === 404) {
-        // Pas encore de blob serveur : pousser l'état local s'il existe
-        if (Object.keys(pockSyncCollect(app)).length) pockSyncMarkDirty(app);
-        continue;
-      }
-      if (!resp.ok) continue;
-      const blob = await resp.json();
-      const remoteAt = blob.updatedAt || 0;
-      const localAt = pockSyncMeta()[app] || 0;
-      if (remoteAt > localAt) {
-        if (pockSyncApply(app, blob.data || {})) changed = true;
-        const meta = pockSyncMeta();
-        meta[app] = remoteAt;
-        localStorage.setItem('pock-sync-meta', JSON.stringify(meta));
-      } else if (localAt > remoteAt) {
-        pockSyncMarkDirty(app);
-      }
-    } catch (_) { /* offline / serveur down : l'app reste 100 % fonctionnelle */ }
+    if (await pockSyncRun(app)) changed = true;
   }
-  // Les apps rendent depuis localStorage au chargement : si le pull a
-  // appliqué des données plus récentes, un reload unique les affiche.
-  // Garde sessionStorage contre toute boucle.
-  if (changed && !sessionStorage.getItem('pock-sync-reloaded')) {
-    sessionStorage.setItem('pock-sync-reloaded', '1');
-    window.location.reload();
-  } else if (!changed) {
-    sessionStorage.removeItem('pock-sync-reloaded');
-  }
+  if (changed) pockSyncReload();
 }
 
 // Mobile usage = open, add an entry, close: flush pending pushes when
@@ -307,11 +404,11 @@ document.addEventListener('visibilitychange', () => {
 
 pockSyncPullAll();
 
-// État propre à l'appareil, jamais restauré depuis un export : un vieux
-// pock-sync-meta écraserait les timestamps posés par l'import (la sync
-// ré-écraserait alors les données importées), et un pock-device importé
-// ferait partager le blob privé (hta) entre deux appareils.
-const POCK_DEVICE_LOCAL = { 'pock-device': true, 'pock-sync-meta': true };
+// État propre à l'appareil, jamais restauré depuis un export : un vieil état
+// de sync ferait croire l'appareil à jour (la sync écraserait alors les
+// données importées), et un pock-device importé ferait partager le blob
+// privé (hta) entre deux appareils. pock-sync-meta : état d'avant 2026-10-11.
+const POCK_DEVICE_LOCAL = { 'pock-device': true, 'pock-sync-state': true, 'pock-sync-meta': true };
 
 function pockImportFromJSON(json, mode) {
   mode = mode || 'merge'; // 'merge' | 'replace'

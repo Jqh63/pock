@@ -4,7 +4,8 @@ on a small always-on VM, behind the existing Caddy (path /pock/*).
 
 One blob per app (a few KB of JSON). The PWA keeps localStorage as the
 UI/offline source and syncs asynchronously: pull on load, debounced push
-on change, last-write-wins per app (client-side timestamps).
+on change. Writes carrying `base` are conditional (409 if the blob moved),
+so the client merges instead of overwriting another device.
 
 Security model (the endpoint is public, the PWA too):
 - Bearer token required on EVERY operation, GET included — no anonymous
@@ -42,8 +43,8 @@ if not SHARED_TOKEN.strip():
 #   POCK_SYNC_SCOPED_TOKENS="<token>:app1,app2 <token2>:app3"
 # A scoped token reads/writes ONLY its listed apps (same blobs as the full
 # token — that's the sharing); other apps answer 403. The full token keeps
-# access to everything. Conflicts stay last-write-wins per app: acceptable
-# because concurrent writes are rare in this usage (documented trade-off).
+# access to everything. Concurrent writes from two people are merged
+# client-side (conditional PUT, see put_blob).
 SCOPED_TOKENS: dict[str, frozenset[str]] = {}
 for _entry in os.environ.get("POCK_SYNC_SCOPED_TOKENS", "").split():
     _tok, _, _apps = _entry.partition(":")
@@ -185,6 +186,19 @@ async def put_blob(app_name: str, request: Request, authorization: str | None = 
         raise HTTPException(status_code=400, detail="invalid JSON")
     if not isinstance(parsed, dict):
         raise HTTPException(status_code=400, detail="blob must be a JSON object")
+    # Conditional write: a client sends `base` = the updatedAt of the version it
+    # worked on (null = "no blob yet"). If the blob moved since, 409 — the
+    # client re-pulls and merges instead of overwriting another device's
+    # entries. No `base` (pre-fix client still cached by the SW): accepted.
+    if "base" in parsed:
+        try:
+            with open(blob_path(app_name), "rb") as f:
+                current = json.loads(f.read()).get("updatedAt")
+        except FileNotFoundError:
+            current = None
+        if parsed["base"] != current:
+            logger.info("sync ip=%s app=%s op=put status=409 reason=stale_base", ip, app_name)
+            raise HTTPException(status_code=409, detail="blob changed since base")
     # Atomic write: a crash mid-write never leaves a truncated blob.
     tmp = blob_path(app_name) + ".tmp"
     with open(tmp, "wb") as f:
