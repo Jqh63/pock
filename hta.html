@@ -500,7 +500,7 @@ function statusHeroHtml() {
   const lv = bpLevel(m.sys, m.dia);
   return `<div class="card hero-card">
       <div class="card-title">Dernière mesure</div>
-      <div class="hero-bp">${m.sys}/${m.dia}<span class="hist-unit"> mmHg${m.pulse ? " · " + m.pulse + " bpm" : ""}</span></div>
+      <div class="hero-bp">${esc(m.sys)}/${esc(m.dia)}<span class="hist-unit"> mmHg${m.pulse ? " · " + esc(m.pulse) + " bpm" : ""}</span></div>
       <div class="hist-sub">${fmtDate(m.ts)} · ${fmtTime(m.ts)}</div>
       <div class="lvl-tag lv${lv}"><span class="lvl-dot"></span>${BP_LEVELS[lv].label}</div>
     </div>`;
@@ -611,10 +611,10 @@ function measureRowHtml(m, opts) {
   if (editMeasureId === m.id) {
     return `<div class="hist-item editing">
       <div class="edit-bp-row">
-        <input class="edit-bp" id="emSys" type="text" inputmode="numeric" pattern="[0-9]*" value="${m.sys}" aria-label="SYS">
+        <input class="edit-bp" id="emSys" type="text" inputmode="numeric" pattern="[0-9]*" value="${esc(m.sys)}" aria-label="SYS">
         <span class="edit-sep">/</span>
-        <input class="edit-bp" id="emDia" type="text" inputmode="numeric" pattern="[0-9]*" value="${m.dia}" aria-label="DIA">
-        <input class="edit-bp pulse" id="emPulse" type="text" inputmode="numeric" pattern="[0-9]*" value="${m.pulse || ''}" placeholder="bpm" aria-label="Pouls" onkeydown="if(event.key==='Enter')saveEditMeasure('${m.id}')">
+        <input class="edit-bp" id="emDia" type="text" inputmode="numeric" pattern="[0-9]*" value="${esc(m.dia)}" aria-label="DIA">
+        <input class="edit-bp pulse" id="emPulse" type="text" inputmode="numeric" pattern="[0-9]*" value="${esc(m.pulse || '')}" placeholder="bpm" aria-label="Pouls" onkeydown="if(event.key==='Enter')saveEditMeasure('${m.id}')">
       </div>
       <div class="hist-actions">
         <button class="btn-ghost ok" onclick="saveEditMeasure('${m.id}')" aria-label="Valider">✓</button>
@@ -627,7 +627,7 @@ function measureRowHtml(m, opts) {
     : `${fmtDate(m.ts)} · ${fmtTime(m.ts)}`;
   return `<div class="hist-item">
     <div class="hist-info">
-      <div class="hist-main">${m.sys}/${m.dia}<span class="hist-unit"> mmHg${m.pulse ? " · " + m.pulse + " bpm" : ""}</span></div>
+      <div class="hist-main">${esc(m.sys)}/${esc(m.dia)}<span class="hist-unit"> mmHg${m.pulse ? " · " + esc(m.pulse) + " bpm" : ""}</span></div>
       <div class="hist-sub">${when}</div></div>
     <div class="hist-actions">
       <span class="lvl-dot lv${lv}" title="${BP_LEVELS[lv].label}"></span>

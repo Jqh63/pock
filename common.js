@@ -20,6 +20,11 @@ function esc(s) {
 // \ ` = sont exclus.
 const POCK_SAFE_FIELDS = { id: 1, color: 1, bg: 1, date: 1, startDate: 1 };
 const POCK_SAFE_RE = /^[A-Za-z0-9 _#.\/:+-]{0,64}$/;
+// Champs numériques interpolés bruts (km-loa : km, durée, km/an, coût ;
+// hta : sys/dia/pouls, horodatage) : nombre fini, ou chaîne numérique (anciens
+// relevés km). Pentest T12 (2026-10-30) : seul `km` était contrôlé.
+const POCK_NUM_FIELDS = { km: 1, kmPerYear: 1, durationMonths: 1, excessCostPerKm: 1,
+                          sys: 1, dia: 1, pulse: 1, ts: 1 };
 const POCK_NUM_RE = /^-?\d+(\.\d+)?$/;
 
 // Chemin du premier champ dangereux d'une valeur localStorage, ou null si sûre.
@@ -32,7 +37,7 @@ function pockUnsafeField(str) {
       const x = o[k], at = path + (Array.isArray(o) ? '[' + k + ']' : '.' + k);
       if (x != null && POCK_SAFE_FIELDS[k] && typeof x !== 'number'
           && !(typeof x === 'string' && POCK_SAFE_RE.test(x))) return at;
-      if (x != null && k === 'km' && !(typeof x === 'number' && isFinite(x))
+      if (x != null && POCK_NUM_FIELDS[k] && !(typeof x === 'number' && isFinite(x))
           && !(typeof x === 'string' && (x === '' || POCK_NUM_RE.test(x)))) return at;
       const r = walk(x, at);
       if (r) return r;

@@ -242,7 +242,7 @@ function setEntries(v, data) {
 
 function daysBetween(a, b) { return Math.floor((b - a) / 864e5); }
 function fmtDate(d) { return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }); }
-function fmtNum(n) { return n.toLocaleString("fr-FR"); }
+function fmtNum(n) { return typeof n === "number" ? n.toLocaleString("fr-FR") : esc(n); }
 function deltaText(d) {
   const abs = Math.abs(d);
   if (d === 0) return { sign: '', abs: 0, label: 'km pile ✓', cls: 'success' };
@@ -370,7 +370,7 @@ function render() {
     <button class="sel-btn ${v.id === activeId ? 'active' : ''}" onclick="switchVehicle('${v.id}')" ${v.id === activeId ? `style="border-color:${v.color};box-shadow:0 0 0 1px ${v.color}"` : ''}>
       <div class="sel-dot" style="background:${v.color}"></div>
       <div class="sel-name">${esc(v.name)}</div>
-      <div class="sel-detail">${fmtNum(v.kmPerYear)} km/an · ${v.durationMonths} mois</div>
+      <div class="sel-detail">${fmtNum(v.kmPerYear)} km/an · ${esc(v.durationMonths)} mois</div>
     </button>
   `).join('');
 
@@ -428,7 +428,7 @@ function render() {
       <div class="header-row">
         <div>
           <div class="vehicle" style="color:${ACCENT}">${esc(C.name)}</div>
-          <div class="contract-info">LOA ${C.durationMonths} mois · ${fmtNum(C.kmPerYear)} km/an · ${fmtNum(C.totalKm)} km total</div>
+          <div class="contract-info">LOA ${esc(C.durationMonths)} mois · ${fmtNum(C.kmPerYear)} km/an · ${fmtNum(C.totalKm)} km total</div>
           <div class="header-actions">
             <button onclick="editVehicle('${V.id}')">Modifier le véhicule</button>
             ${sorted.length > 0 ? `<button class="reset-entries" onclick="resetEntries()">Réinitialiser les relevés</button>` : ''}
