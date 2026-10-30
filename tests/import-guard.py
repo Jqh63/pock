@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Garde d'entrée de common.js : un import ou un blob de sync dont un champ
-interpolé brut (id, color, bg, date, startDate, km) peut sortir de sa chaîne
+interpolé brut (id, color, bg, date, startDate, champs numériques) peut sortir de sa chaîne
 JS ou de son attribut est refusé AVANT toute écriture.
 
 Contrôle positif : les formats réels des apps passent (ids « vehicule-1 » et
@@ -24,6 +24,8 @@ LEGIT = blob(**{
                           "startDate": "2024-01-01", "durationMonths": 37}],
     "pock-km-vehicule-1": [{"id": "mgk1x2abcde", "date": "2026-10-01", "km": 12345}],
     "pock-covoit-history": [{"date": "08/10/2026", "total": 42}],
+    "pock-hta-measures": [{"id": "a1", "ts": 1760000000000, "sys": 128, "dia": 82, "pulse": None,
+                           "campaignId": None}],
     "pock-biblio-books": [{"id": "lq3abcd12", "title": "L'été <i>", "status": "read", "addedAt": 1}],
 })
 EVIL = {
@@ -32,6 +34,12 @@ EVIL = {
     "date attr":  blob(**{"pock-km-v": [{"id": "e", "date": "2026-01-01\" onfocus=\"alert(1)", "km": 1}]}),
     "km code":    blob(**{"pock-km-v": [{"id": "e", "date": "2026-01-01", "km": "1);alert(1);//"}]}),
     "nested id":  blob(**{"pock-hta-measures": [{"id": "ok", "cycles": [{"id": "<img src=x>"}]}]}),
+    # T12 du pentest : champs numériques interpolés bruts (km-loa, hta)
+    "durationMonths html": blob(**{"pock-km-vehicles": [{"id": "v", "color": "#000", "startDate": "2024-01-01",
+                                                         "durationMonths": "<img src=x onerror=alert(1)>"}]}),
+    "kmPerYear html": blob(**{"pock-km-vehicles": [{"id": "v", "kmPerYear": "<b>1</b>"}]}),
+    "sys html":   blob(**{"pock-hta-measures": [{"id": "a1", "ts": 1, "sys": "<img src=x>", "dia": 80}]}),
+    "pulse html": blob(**{"pock-hta-measures": [{"id": "a1", "ts": 1, "sys": 120, "dia": 80, "pulse": "1<svg>"}]}),
 }
 
 fail = 0
@@ -48,7 +56,7 @@ with sync_playwright() as p:
         try { return {n: pockImportFromJSON(t, 'merge'), keys: localStorage.length}; }
         catch (e) { return {err: e.message, keys: localStorage.length}; } }"""
     r = pg.evaluate(imp, LEGIT)
-    check(r.get("n") == 4, f"A import légitime accepté (formats réels des apps) : {r}")
+    check(r.get("n") == 5, f"A import légitime accepté (formats réels des apps) : {r}")
     for name, t in EVIL.items():
         r = pg.evaluate(imp, t)
         check("err" in r and r["keys"] == 0, f"B import refusé sans rien écrire — {name} : {r}")
@@ -63,6 +71,11 @@ with sync_playwright() as p:
         return {changed, v: localStorage.getItem('pock-km-vehicles')}; }""",
                     json.loads(EVIL["id quote"])["data"])
     check(r["changed"] is False and r["v"] == "[]", f"D blob de sync dangereux ignoré : {r}")
+    r = pg.evaluate("""(d) => { localStorage.clear(); localStorage.setItem('pock-km-vehicles', '[]');
+        const changed = pockSyncApply('km', d);
+        return {changed, v: localStorage.getItem('pock-km-vehicles')}; }""",
+                    json.loads(EVIL["durationMonths html"])["data"])
+    check(r["changed"] is False and r["v"] == "[]", f"D2 blob km avec durationMonths HTML ignoré : {r}")
     # config de sync = propre à l'appareil : le token ne sort pas dans le
     # fichier d'export (partagé, il ouvrirait tous les blobs), un import ne la
     # restaure pas et un import « remplacer » ne l'efface pas.
