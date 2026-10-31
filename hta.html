@@ -17,15 +17,16 @@
 <style>
   :root {
     --accent: #14b8a6;   /* turquoise apaisant — distinct des couleurs d'état */
+  --on-accent: #0c0e14; /* blanc sur turquoise = 2.5:1 (clair), 1.9:1 (sombre) */
   }
   /* Échelle de classification (var --c texte, --bg fond, --bd bordure) —
      chaque niveau porte ses 3 couleurs via une classe .lvN. */
-  .lv0 { --c:#3f8da0; --bg:#eef6f8; --bd:#bcdde4; }  /* faible (hypotension) */
-  .lv1 { --c:#0d9668; --bg:#ecfdf5; --bd:#6ee7b7; }  /* normale */
+  .lv0 { --c:#357686; --bg:#eef6f8; --bd:#bcdde4; }  /* faible (hypotension) */
+  .lv1 { --c:#0b8159; --bg:#ecfdf5; --bd:#6ee7b7; }  /* normale */
   .lv2 { --c:#a16207; --bg:#fefce8; --bd:#fde68a; }  /* normale haute */
   .lv3 { --c:#b45309; --bg:#fff7ed; --bd:#fdba74; }  /* légèrement élevée */
   .lv4 { --c:#c2410c; --bg:#fff1e9; --bd:#fb923c; }  /* HTA modérée */
-  .lv5 { --c:#dc2626; --bg:#fef2f2; --bd:#fca5a5; }  /* HTA forte */
+  .lv5 { --c:#d52222; --bg:#fef2f2; --bd:#fca5a5; }  /* HTA forte */
   .app { max-width: 640px; margin: 0 auto; padding: 20px 16px 48px; }
   .top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
   h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.03em; }
@@ -39,14 +40,14 @@
   .mf-field { flex: 1; min-width: 0; }
   .mf-field label { display: block; font-size: 10px; font-weight: 600; color: var(--text3); margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.04em; }
   .mf-field input { width: 100%; padding: 10px 8px; border: 1px solid var(--border); border-radius: 8px; font-size: 16px; font-family: var(--font-mono); text-align: center; background: var(--bg); color: var(--text); }
-  .mf-btn { flex-shrink: 0; padding: 10px 16px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: var(--font-sans); white-space: nowrap; }
+  .mf-btn { flex-shrink: 0; padding: 10px 16px; background: var(--accent); color: var(--on-accent); border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: var(--font-sans); white-space: nowrap; }
   .mf-btn:hover { opacity: .88; }
   .mf-hint { font-size: 11px; color: var(--text3); margin-top: 8px; }
 
   /* Boutons génériques */
   .btn { border: none; border-radius: 10px; padding: 11px 18px; font-size: 14px; font-weight: 600; font-family: var(--font-sans); cursor: pointer; transition: opacity .15s; }
   .btn:hover { opacity: .88; }
-  .btn-accent { background: var(--accent); color: #fff; }
+  .btn-accent { background: var(--accent); color: var(--on-accent); }
   .btn-full { width: 100%; }
   .btn-outline { background: none; border: 1.5px solid var(--border); color: var(--text2); }
   .btn-ghost { background: none; border: none; color: var(--text3); font-size: 13px; cursor: pointer; padding: 6px 4px; font-family: var(--font-sans); }

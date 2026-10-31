@@ -17,8 +17,8 @@
 <style>
   :root {
     --accent: #3563e9;
-    --success: #0d9668; --success-bg: #ecfdf5; --success-border: #6ee7b7;
-    --danger: #e5393f; --danger-bg: #fef2f2; --danger-border: #fca5a5;
+    --success: #0b7f58; --success-bg: #ecfdf5; --success-border: #6ee7b7;
+    --danger: #db1d23; --danger-bg: #fef2f2; --danger-border: #fca5a5;
   }
   .app { max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
 
@@ -114,8 +114,8 @@
   .entries-head .card-title { margin-bottom: 0; }
   .btn { border: none; border-radius: 8px; padding: 7px 16px; font-size: 12px; font-weight: 600; font-family: var(--font-sans); cursor: pointer; transition: opacity .15s; }
   .btn:hover { opacity: .85; }
-  .btn-accent { background: var(--accent); color: #fff; }
-  .btn-dark { background: var(--text); color: #fff; width: 100%; padding: 11px; font-size: 13px; }
+  .btn-accent { background: var(--accent); color: var(--on-accent); }
+  .btn-dark { background: var(--text); color: var(--bg); width: 100%; padding: 11px; font-size: 13px; }
   .btn-outline { background: none; border: 1px solid var(--border); color: var(--text2); padding: 7px 16px; border-radius: 8px; font-size: 12px; font-weight: 600; font-family: var(--font-sans); cursor: pointer; }
 
   .form { background: var(--bg); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
@@ -513,7 +513,7 @@ function render() {
         <div class="entry-list">${[...sorted].reverse().map(e=>{
           const d=new Date(e.date);const dfs=Math.max(0,daysBetween(C.start,d));const exp=Math.round(C.kmPerDay*dfs);const diff=e.km-exp;
           const isEditing = editingId!==null && String(editingId)===String(e.id);
-          return`<div class="entry"><div class="entry-date">${isEditing?`<input class="edit-input" type="date" id="editDateInput" value="${e.date}" style="width:100%;max-width:150px">`:d.toLocaleDateString("fr-FR",{day:"numeric",month:"short",year:"numeric"})}</div><div class="entry-vals"><div class="entry-km">${isEditing?`<input class="edit-input" type="text" inputmode="numeric" pattern="[0-9]*" id="editInput" value="${esc(String(editKmVal))}" onkeydown="if(event.key==='Enter')saveEdit('${e.id}')">`:`${fmtNum(e.km)} km`}</div><div class="entry-delta" style="color:${diff>0?'#e5393f':'#0d9668'}">${diff>0?'+':''}${fmtNum(diff)} km</div></div><div class="entry-actions">${isEditing?`<button onclick="saveEdit('${e.id}')" aria-label="Valider">✓</button>`:`<button onclick="startEdit('${e.id}',${e.km},'${e.date}')" aria-label="Modifier le relevé">✎</button>`}<button class="del" onclick="deleteEntry('${e.id}')" aria-label="Supprimer le relevé">✕</button></div></div>`;
+          return`<div class="entry"><div class="entry-date">${isEditing?`<input class="edit-input" type="date" id="editDateInput" value="${e.date}" style="width:100%;max-width:150px">`:d.toLocaleDateString("fr-FR",{day:"numeric",month:"short",year:"numeric"})}</div><div class="entry-vals"><div class="entry-km">${isEditing?`<input class="edit-input" type="text" inputmode="numeric" pattern="[0-9]*" id="editInput" value="${esc(String(editKmVal))}" onkeydown="if(event.key==='Enter')saveEdit('${e.id}')">`:`${fmtNum(e.km)} km`}</div><div class="entry-delta" style="color:${diff>0?'var(--danger)':'var(--success)'}">${diff>0?'+':''}${fmtNum(diff)} km</div></div><div class="entry-actions">${isEditing?`<button onclick="saveEdit('${e.id}')" aria-label="Valider">✓</button>`:`<button onclick="startEdit('${e.id}',${e.km},'${e.date}')" aria-label="Modifier le relevé">✎</button>`}<button class="del" onclick="deleteEntry('${e.id}')" aria-label="Supprimer le relevé">✕</button></div></div>`;
         }).join('')}</div>`}
     </div>
     <div class="footer">Pock · Données stockées localement</div>

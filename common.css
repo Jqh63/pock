@@ -12,14 +12,20 @@
   --mono: var(--font-mono);
   --serif: var(--font-serif);
 
+  /* Contrôles natifs (sélecteur de date, select, case à cocher, scrollbar)
+     dessinés au thème courant : sans ça Chrome les garde clairs en dark. */
+  color-scheme: light dark;
+  accent-color: var(--accent);
+
   /* Palette par défaut (les apps peuvent override) */
   --bg: #f4f6f8;
   --surface: #ffffff;
   --border: #e2e7ed;
   --text: #1a2332;
   --text2: #4b5a6e;   /* ancien #5a6a7e — un cran plus foncé pour contraste AA */
-  --text3: #7a889a;   /* ancien #94a1b2 — un cran plus foncé pour petit texte */
+  --text3: #627081;   /* AA 4.6:1 sur --bg (tests/contrast.py) ; ancien #7a889a = 3.3:1 */
   --accent: #3563e9;
+  --on-accent: #fff;  /* texte posé sur un fond --accent */
 }
 
 /* Dark mode automatique — suit le thème système (prefers-color-scheme).
@@ -33,8 +39,9 @@
     --border: #2a313f;
     --text: #e4e6ef;
     --text2: #aab4c4;   /* contraste AA sur --surface */
-    --text3: #7e8a9c;   /* petit texte — reste lisible sur --bg */
+    --text3: #8b97a9;   /* petit texte — AA aussi sur les cartes actives */
     --accent: #5b82f5;  /* éclairci pour contraste sur fond sombre */
+    --on-accent: #0c0e14; /* accents clairs en dark ⇒ texte foncé (blanc = 3.5:1) */
   }
 }
 

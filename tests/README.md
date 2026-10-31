@@ -19,6 +19,10 @@ manually before a PR — not in CI (the GitHub Actions workflow
   `sync/app.py` (in-process): concurrent entries, a delete on a stale device
   and a first sync with existing local data must all end merged, nothing
   lost. Run it after touching the sync code of `common.js` or `sync/app.py`.
+- `contrast.py` — WCAG AA contrast of every app, **light and dark**, empty and
+  populated with fictitious fixtures, plus a `color-scheme` pin (without it Chrome
+  draws the date picker, selects and checkboxes light on a dark page). Single-engine
+  (chromium). Run it after touching any colour, palette or `common.css`.
 - `screenshots/` — output, gitignored. Re-generated on every run.
 - `README.md` — this file.
 
