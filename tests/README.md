@@ -19,6 +19,11 @@ manually before a PR — not in CI (the GitHub Actions workflow
   `sync/app.py` (in-process): concurrent entries, a delete on a stale device
   and a first sync with existing local data must all end merged, nothing
   lost. Run it after touching the sync code of `common.js` or `sync/app.py`.
+- `sync-foreground.py` — a device left open sees the other device's entry when
+  it comes back to the foreground (at most once per 30 s, never while a field is
+  being edited), and a push that failed offline shows the « Pas encore
+  synchronisé » banner, then goes out when the network returns. Run it with
+  `sync-conflict.py`.
 - `contrast.py` — WCAG AA contrast of every app, **light and dark**, empty and
   populated with fictitious fixtures, plus a `color-scheme` pin (without it Chrome
   draws the date picker, selects and checkboxes light on a dark page). Single-engine

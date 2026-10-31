@@ -162,6 +162,7 @@ function pockSyncBlob(app) {
 }
 let pockSyncApplying = false;
 const pockSyncTimers = {};
+let pockSyncInflight = 0;
 
 function pockSyncConfig() {
   const url = localStorage.getItem('pock-sync-url');
@@ -185,6 +186,7 @@ function pockSyncSaveState(app, st) {
   const all = pockSyncState();
   all[app] = st;
   localStorage.setItem('pock-sync-state', JSON.stringify(all));
+  pockSyncBadge();
 }
 
 function pockSyncAppFor(key) {
@@ -259,7 +261,9 @@ function pockSyncRequest(cfg, method, app, body, keepalive) {
     opts.headers['Content-Type'] = 'application/json';
     opts.body = JSON.stringify(body);
   }
-  return fetch(cfg.url + '/pock/' + pockSyncBlob(app), opts);
+  pockSyncInflight++;
+  return fetch(cfg.url + '/pock/' + pockSyncBlob(app), opts)
+    .finally(() => { pockSyncInflight--; pockSyncBadge(); });
 }
 
 // Écriture conditionnelle : `base` dit au serveur sur quelle version on a
@@ -292,6 +296,7 @@ function pockSyncMarkDirty(app) {
     pockSyncTimers[app] = null;
     pockSyncPush(app);
   }, POCK_SYNC_DEBOUNCE_MS);
+  pockSyncBadge();
 }
 
 // Hook every localStorage write so any save path in any app marks its
@@ -395,6 +400,7 @@ function pockSyncReload() {
 
 async function pockSyncPullAll() {
   if (!pockSyncConfig()) return;
+  pockSyncLastPull = Date.now();
   let changed = false;
   for (const app in POCK_SYNC_APPS) {
     if (await pockSyncRun(app)) changed = true;
@@ -414,6 +420,55 @@ document.addEventListener('visibilitychange', () => {
     }
   }
 });
+
+// Retour au premier plan / retour du réseau : une PWA restée ouverte en
+// mémoire (Android) ne recharge pas ses pages — sans relecture, la saisie
+// d'un autre appareil n'apparaîtrait qu'au prochain chargement, et un envoi
+// raté attendrait lui aussi. Au plus 1 relecture / 30 s. Jamais pendant une
+// saisie : une fusion recharge la page (cf. pockSyncReload) et perdrait le
+// champ en cours ; la relecture se fera au prochain retour.
+const POCK_SYNC_FOREGROUND_MS = 30000;
+let pockSyncLastPull = 0;
+
+function pockSyncEditing() {
+  const el = document.activeElement;
+  if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return true;
+  return Array.from(document.querySelectorAll('textarea, input:not([type]), input[type=text], input[type=number], input[type=search]'))
+    .some(f => f.value !== f.defaultValue);
+}
+
+function pockSyncPullIfStale() {
+  if (Date.now() - pockSyncLastPull < POCK_SYNC_FOREGROUND_MS || pockSyncEditing()) return;
+  pockSyncPullAll();
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') pockSyncPullIfStale();
+});
+window.addEventListener('online', () => { pockSyncLastPull = 0; pockSyncPullIfStale(); });
+
+// Bandeau « pas encore synchronisé » : une modif locale qu'aucun envoi n'a pu
+// porter au serveur (hors ligne, serveur coupé). Masqué tant qu'un envoi est
+// programmé ou en vol — il ne signale que l'échec, pas l'attente normale.
+function pockSyncBadge() {
+  if (!document.body) return;
+  const st = pockSyncState();
+  const pending = !!pockSyncConfig() && pockSyncInflight === 0
+    && !Object.keys(pockSyncTimers).some(a => pockSyncTimers[a])
+    && Object.keys(st).some(a => st[a] && st[a].dirty);
+  let el = document.getElementById('pockSyncPending');
+  if (!pending) { if (el) el.hidden = true; return; }
+  if (!el) {
+    el = document.createElement('button');
+    el.type = 'button';
+    el.id = 'pockSyncPending';
+    el.className = 'sync-pending';
+    el.textContent = '⏳ Pas encore synchronisé · Réessayer';
+    el.addEventListener('click', () => { el.hidden = true; pockSyncPullAll(); });
+    document.body.appendChild(el);
+  }
+  el.hidden = false;
+}
 
 pockSyncPullAll();
 
