@@ -17,9 +17,16 @@
 <style>
   :root {
     --bg: #f7f5f2; --surface: #fff; --border: #e0dbd5;
-    --text: #2d2a26; --text2: #5a544e; --text3: #7a736a; --text4: #a09889;
+    --text: #2d2a26; --text2: #5a544e; --text3: #756e65; --text4: #766e5f;
     --blue: #3d5a80; --blue-bg: #eaf0f6;
     --accent: var(--blue);
+    --on-accent: #fff;
+    /* Statuts : couleur de texte AA (>= 4.6:1) sur blanc ET sur leur fond. */
+    --st-to_read: #ab571e;  --st-to_read-bg: #fef3ec;
+    --st-reading: #4a715c;  --st-reading-bg: #eef5f0;
+    --st-read: #3d5a80;     --st-read-bg: #eaf0f6;
+    --st-reserved: #8940e0; --st-reserved-bg: #f3ecfc;
+    --st-borrowed: #cf1283; --st-borrowed-bg: #fdeef6;
   }
   .app { max-width: 680px; margin: 0 auto; padding: 24px 16px; }
 
@@ -30,7 +37,7 @@
 
   .btn { border: none; border-radius: 8px; cursor: pointer; font-family: var(--font-sans); transition: opacity .15s; font-size: 14px; font-weight: 500; }
   .btn:hover { opacity: .85; }
-  .btn-primary { background: var(--blue); color: #fff; padding: 10px 18px; }
+  .btn-primary { background: var(--blue); color: var(--on-accent); padding: 10px 18px; }
   .btn-secondary { background: transparent; color: var(--blue); border: 1.5px solid var(--blue); padding: 9px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; font-family: var(--font-sans); }
   .btn-ghost { background: none; border: none; color: var(--text3); font-size: 14px; cursor: pointer; padding: 10px 14px; font-family: var(--font-sans); }
   .btn-danger { background: none; border: none; color: #c0392b; font-size: 13px; cursor: pointer; padding: 8px 0; font-family: var(--font-sans); }
@@ -58,9 +65,9 @@
   .sort-select { width: 140px; font-size: 16px; padding: 10px 8px; }
 
   .pills { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
-  .pill { background: transparent; border: 1.5px solid var(--border); border-radius: 20px; padding: 5px 14px; font-size: 13px; cursor: pointer; font-weight: 500; transition: all .2s; display: flex; align-items: center; gap: 5px; font-family: var(--font-sans); }
-  .pill.active { background: var(--blue); color: #fff; border-color: var(--blue); }
-  .pill-count { font-size: 11px; opacity: 0.75; }
+  .pill { background: transparent; border: 1.5px solid var(--border); border-radius: 20px; padding: 5px 14px; font-size: 13px; cursor: pointer; font-weight: 500; color: var(--text2); transition: all .2s; display: flex; align-items: center; gap: 5px; font-family: var(--font-sans); }
+  .pill.active { background: var(--blue); color: var(--on-accent); border-color: var(--blue); }
+  .pill-count { font-size: 11px; }
 
   .book-list { display: flex; flex-direction: column; gap: 8px; }
   .empty { text-align: center; padding: 48px 16px; color: var(--text4); font-size: 15px; font-style: italic; }
@@ -92,8 +99,16 @@
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #14120f; --surface: #1d1a16; --border: #322d27;
-      --text: #ece8e2; --text2: #b3aaa0; --text3: #8a8076; --text4: #6b6358;
+      --text: #ece8e2; --text2: #b3aaa0; --text3: #91887e; --text4: #8e8375;
       --blue: #6f93c0; --blue-bg: #1a2230;
+      --on-accent: #14120f;
+      --st-to_read: #e8a87c; --st-reading: #5e8f76; --st-read: #6286b4;
+      --st-reserved: #a268e7; --st-borrowed: #f15bb5;
+      --st-to_read-bg:  color-mix(in srgb, var(--st-to_read) 14%, var(--surface));
+      --st-reading-bg:  color-mix(in srgb, var(--st-reading) 14%, var(--surface));
+      --st-read-bg:     color-mix(in srgb, var(--st-read) 14%, var(--surface));
+      --st-reserved-bg: color-mix(in srgb, var(--st-reserved) 14%, var(--surface));
+      --st-borrowed-bg: color-mix(in srgb, var(--st-borrowed) 14%, var(--surface));
     }
     .btn-danger, .btn-icon.del:hover { color: #e06a5d; }
     .btn-icon:hover { background: rgba(255,255,255,.06); }
@@ -107,11 +122,12 @@
 <script src="common.js"></script>
 <script>
 const STATUSES = {
-  to_read: { label: "À lire", color: "#e8a87c", bg: "#fef3ec" },
-  reading: { label: "En cours", color: "#5b8a72", bg: "#eef5f0" },
-  read: { label: "Lu", color: "#3d5a80", bg: "#eaf0f6" },
-  reserved: { label: "Réservé", color: "#9b5de5", bg: "#f3ecfc" },
-  borrowed: { label: "Emprunté", color: "#f15bb5", bg: "#fdeef6" },
+  // Couleurs par thème : tokens --st-* du <style> (clair/sombre).
+  to_read: { label: "À lire", color: "var(--st-to_read)", bg: "var(--st-to_read-bg)" },
+  reading: { label: "En cours", color: "var(--st-reading)", bg: "var(--st-reading-bg)" },
+  read: { label: "Lu", color: "var(--st-read)", bg: "var(--st-read-bg)" },
+  reserved: { label: "Réservé", color: "var(--st-reserved)", bg: "var(--st-reserved-bg)" },
+  borrowed: { label: "Emprunté", color: "var(--st-borrowed)", bg: "var(--st-borrowed-bg)" },
 };
 const STORAGE_KEY = "pock-biblio-books";
 
@@ -192,7 +208,7 @@ function render() {
   const pillsHtml = `<button class="pill ${filterStatus==='all'?'active':''}" onclick="setFilter('all')">Tous <span class="pill-count">${counts.all}</span></button>` +
     Object.entries(STATUSES).map(([k,v]) => {
       const isActive = filterStatus === k;
-      const style = isActive ? `background:${v.color};border-color:${v.color};color:#fff` : `color:${v.color};border-color:${v.color}55`;
+      const style = isActive ? `background:${v.color};border-color:${v.color};color:var(--on-accent)` : `color:${v.color};border-color:color-mix(in srgb, ${v.color} 33%, transparent)`;
       return `<button class="pill ${isActive?'active':''}" style="${style}" onclick="setFilter('${k}')">${v.label} <span class="pill-count">${counts[k]||0}</span></button>`;
     }).join('');
 

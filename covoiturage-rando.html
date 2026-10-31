@@ -17,7 +17,7 @@
 <style>
   :root {
     --bg: #f3f2ee; --surface: #fff; --border: #d8d4ca;
-    --text: #2c2c2c; --text2: #4a4a42; --text3: #7a7668;
+    --text: #2c2c2c; --text2: #4a4a42; --text3: #6a675a;
     --green: #2d5a27; --green-bg: #f0f7ef; --green-border: #c8ddc5;
     --danger: #c0392b; --danger-bg: #fdf0ef;
     --accent: var(--green);
@@ -36,7 +36,7 @@
   .btn-row { display: flex; gap: 12px; margin-top: 8px; }
   .btn { border: none; border-radius: 12px; cursor: pointer; font-family: var(--font-serif); transition: all .15s; }
   .btn:hover { opacity: .88; }
-  .btn-primary { flex: 2; padding: 16px 20px; font-size: 19px; font-weight: 700; background: var(--green); color: #fff; box-shadow: 0 4px 14px rgba(45,90,39,0.3); }
+  .btn-primary { flex: 2; padding: 16px 20px; font-size: 19px; font-weight: 700; background: var(--green); color: var(--on-accent); box-shadow: 0 4px 14px rgba(45,90,39,0.3); }
   .btn-primary:disabled { background: var(--border); color: #999; box-shadow: none; cursor: default; }
   .btn-secondary { flex: 1; padding: 16px 12px; font-size: 16px; font-weight: 600; border: 2px solid var(--border); background: #fff; color: #666; border-radius: 12px; cursor: pointer; font-family: var(--font-serif); }
   .result-card { background: var(--surface); border-radius: 16px; padding: 24px 20px; box-shadow: 0 2px 16px rgba(45,90,39,0.1); border: 2px solid var(--green); margin-bottom: 20px; }
@@ -46,7 +46,7 @@
   .big-label { font-size: 15px; color: var(--text2); font-weight: 600; }
   .big-amount { font-size: 42px; font-weight: 700; color: var(--text); line-height: 1.1; font-family: var(--font-mono); }
   .big-amount-green { font-size: 42px; font-weight: 700; color: var(--green); line-height: 1.1; font-family: var(--font-mono); }
-  .net-note { font-size: 13px; color: var(--text3); font-style: italic; }
+  .net-note { font-size: 13px; color: var(--text2); font-style: italic; }
   .result-divider { height: 1px; background: var(--green-border); margin: 16px 0; }
   .detail-box { background: #f8f7f4; border-radius: 12px; padding: 16px 14px; margin-bottom: 16px; }
   .detail-heading { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text2); margin-bottom: 12px; }
@@ -61,7 +61,7 @@
   .tier-card { background: #fff; border-radius: 0 0 12px 12px; padding: 16px; border: 2px solid var(--border); border-top: none; }
   .tier-note { font-size: 13px; color: var(--text3); font-style: italic; margin-bottom: 12px; line-height: 1.5; }
   .tier-table { border-radius: 10px; overflow: hidden; border: 1px solid #e0ddd6; }
-  .tier-header { display: flex; background: var(--green); color: #fff; }
+  .tier-header { display: flex; background: var(--green); color: var(--on-accent); }
   .tier-header-cell { flex: 1; padding: 10px 14px; font-size: 14px; font-weight: 700; text-align: center; }
   .tier-row { display: flex; }
   .tier-row:nth-child(even) { background: #f8f7f4; }
@@ -72,7 +72,7 @@
   .history-item:last-of-type { border-bottom: none; }
   .history-date { font-size: 13px; color: var(--text3); font-weight: 600; }
   .history-detail { font-size: 14px; color: #3a3a35; margin-top: 2px; }
-  .history-clear { margin-top: 12px; padding: 8px 14px; font-size: 14px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: #999; cursor: pointer; font-family: var(--font-serif); }
+  .history-clear { margin-top: 12px; padding: 8px 14px; font-size: 14px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: var(--text3); cursor: pointer; font-family: var(--font-serif); }
   .footer { text-align: center; font-size: 12px; color: var(--text3); padding: 8px 0; }
   .card, .result-card, .history { animation: pockFadeIn .35s ease both; }
 
@@ -80,7 +80,7 @@
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #0f120e; --surface: #181c16; --border: #2c3128;
-      --text: #e6e8e2; --text2: #aab0a2; --text3: #828876;
+      --text: #e6e8e2; --text2: #aab0a2; --text3: #8b907f;
       --green: #6fae66; --green-bg: #18251a; --green-border: #2f5e2a;
       --danger: #e06a5d; --danger-bg: #2a1614;
     }
