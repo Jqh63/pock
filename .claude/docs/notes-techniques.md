@@ -30,7 +30,11 @@ La roadmap, les décisions d'architecture et le contexte plus large vivent dans 
 - Panneau Export/Import sur le hub (JSON, mode fusion ou remplacement)
 - **Sync opt-in** (v16) : couche dans `common.js` + config sur le hub
   (URL + token Bearer) vers le blob store `sync/` self-hébergé. Pull au
-  chargement, push debounced 1,5 s (flush `keepalive` quand l'onglet
+  chargement, et depuis le 2026-10-31 au retour au premier plan et au retour
+  du réseau (`online`) — au plus 1 / 30 s, jamais pendant une saisie (la
+  fusion recharge la page) ; bandeau « Pas encore synchronisé · Réessayer »
+  quand une modif locale n'a pu partir (masqué pendant l'attente normale).
+  Push debounced 1,5 s (flush `keepalive` quand l'onglet
   passe en arrière-plan). Depuis le 2026-10-11 : PUT **conditionnel**
   (`base` = version serveur sur laquelle on a travaillé, 409 si elle a
   bougé) puis **fusion à 3 voies** par clé contre la dernière version

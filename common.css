@@ -84,3 +84,13 @@ textarea:focus-visible {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+/* Bandeau « pas encore synchronisé » (common.js, pockSyncBadge) */
+.sync-pending {
+  position: fixed; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom));
+  width: fit-content; margin: 0 auto; z-index: 1000;
+  padding: 10px 16px; border-radius: 999px; border: 1px solid var(--accent);
+  background: var(--surface); color: var(--text); font: 600 14px var(--font-sans);
+  box-shadow: 0 4px 16px rgba(0,0,0,.18); cursor: pointer;
+}
+.sync-pending[hidden] { display: none; }
