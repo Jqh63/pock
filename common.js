@@ -210,6 +210,9 @@ function pockShowVersion() {
     b.textContent = glyph;
     b.hidden = true;
     b.addEventListener('click', () => {
+      // ⟳ : le SW recharge seul dès qu'il a pris la main ; l'appui recharge tout
+      // de suite (même règle que la PWA WoL et dash-pat).
+      if (id === 'pockNewer') { window.location.reload(); return; }
       const same = !detail.hidden && detail.dataset.from === id;
       detail.hidden = same;
       detail.dataset.from = id;
@@ -251,7 +254,7 @@ function pockShowVersion() {
       const now = pockFmtWhen(Date.now(), false);
       setMark(latest, v === 'latest' && ('Dernière version publiée (vérifié à ' + now + ')'));
       setMark(newer, v === 'newer' &&
-        ('Version plus récente publiée : ' + pockVersionLabel([srv]) + ' — chargement en cours'));
+        ('Version plus récente publiée : ' + pockVersionLabel([srv]) + ' — rechargement automatique, appuyer pour recharger maintenant'));
     });
   };
   check();

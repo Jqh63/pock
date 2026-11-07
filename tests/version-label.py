@@ -239,8 +239,15 @@ with serve_repo() as base, sync_playwright() as p:
         check((ok, new) == (want_ok, want_new), f"{name} → ✓={ok} ⟳={new}")
         if new:
             t = page.get_attribute("#pockNewer", "title")
-            check(t == "Version plus récente publiée : v1 · 2099-01-01 — chargement en cours",
+            check(t == "Version plus récente publiée : v1 · 2099-01-01 — rechargement automatique, appuyer pour recharger maintenant",
                   f"détail ⟳ → {t!r}")
+            page.evaluate("window.__avantReload = 1")
+            try:
+                with page.expect_navigation(timeout=10000):
+                    page.click("#pockNewer")
+            except Exception:  # noqa: BLE001
+                pass
+            check(page.evaluate("window.__avantReload") is None, "appui ⟳ → page rechargée")
         if ok:
             t = page.get_attribute("#pockLatest", "title")
             check(t.startswith("Dernière version publiée (vérifié à "), f"détail ✓ → {t!r}")
