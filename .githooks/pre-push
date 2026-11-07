@@ -27,12 +27,21 @@ while read -r _lref lsha _rref _rsha; do
   base="$(git merge-base origin/main "$lsha" 2>/dev/null)" || continue
   served="$(git diff --name-only "$base" "$lsha" | served_files)"
   [ -z "$served" ] && continue
-  git diff -U0 "$base" "$lsha" -- sw.js |
-    awk '/^\+[^+]/ && /CACHE(_NAME)?[[:space:]]*=/ { f = 1 } END { exit !f }' && continue
+  bump="$(git diff -U0 "$base" "$lsha" -- sw.js |
+    awk '/^\+[^+]/ && /CACHE(_NAME)?[[:space:]]*=/ { print; exit }')"
+  # Format daté exigé : common.js en dérive le libellé affiché ; hors format,
+  # le pied de page resterait « Pock — » sans que rien ne le signale.
+  if [ -n "$bump" ]; then
+    printf '%s\n' "$bump" |
+      grep -Eq "'pock-v[0-9]+-[0-9]{4}-[0-9]{2}-[0-9]{2}[a-z]?'" && continue
+    echo "✗ pre-push : CACHE_NAME hors format pock-v<génération>-<YYYY-MM-DD>[a-z] :" >&2
+    echo "    ${bump#+}" >&2
+    rc=1; continue
+  fi
   {
     echo "✗ pre-push : fichier(s) servi(s) modifié(s) sans bump de CACHE_NAME dans sw.js :"
     printf '%s\n' "$served" | sed 's/^/    /'
-    echo "  Bumper sw.js : const CACHE_NAME = 'pock-v<N+1>'."
+    echo "  Bumper sw.js : const CACHE_NAME = 'pock-v<gén>-<date du jour>[lettre]' (CLAUDE.md)."
     echo "  Contournement seulement si voulu : git push --no-verify"
   } >&2
   rc=1
