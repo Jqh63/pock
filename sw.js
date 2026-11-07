@@ -2,7 +2,7 @@
 // La date bouge à CHAQUE déploiement ; la génération seulement sur une refonte
 // de fond. Seul marqueur de version : common.js en dérive le libellé affiché
 // (« v1 · 2026-11-07a », pied de page de chaque app). Convention : CLAUDE.md.
-const CACHE_NAME = 'pock-v1-2026-11-07d';
+const CACHE_NAME = 'pock-v1-2026-11-07e';
 const ASSETS = [
   './',
   './index.html',

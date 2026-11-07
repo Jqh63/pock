@@ -102,7 +102,8 @@ const CACHE_NAME = 'pock-v1-2026-11-07a';
   - **✓** dernière version publiée : `sw.js` relu sur le réseau (no-store) à
     l'ouverture, au retour sur l'app et toutes les 5 min, même `CACHE_NAME`.
     Pas de verdict (hors ligne, serveur en retard) ⇒ pas de ✓.
-  - **⟳** une version plus récente est publiée et en cours de chargement.
+  - **⟳** une version plus récente est publiée : l'app se recharge seule dès
+    que le SW a pris la main, **un appui recharge tout de suite**.
   - **✦** mise à jour reçue sur cet appareil depuis moins de 24 h (« avant : … »),
     clé d'appareil `pockVersionSeen`, hors préfixe `pock-` : ni sync ni export.
   Épinglé par `tests/version-label.py` (règles, rendu, serveur simulé, contraste).
