@@ -36,9 +36,11 @@ manually before a PR — not in CI (the GitHub Actions workflow
 - `version-label.py` — the version label you SEE: parser of `common.js`
   (`pockVersionLabel`, transition `pock-vN` → dated, numeric order), the footer
   of the hub + 4 apps over http once the SW is active, the hub's État line, and
-  the « mis à jour » banner (none on a first visit, shown once after a version
-  change, key kept out of export and sync). Single-engine (chromium). Run it
-  after touching `sw.js`'s cache name or the version code of `common.js`.
+  the marks next to it: ✦ (update received < 24 h; none on a first visit, key
+  kept out of export and sync), ✓ / ⟳ (compared with `sw.js` on the server,
+  faked in-page: same / newer / offline / server behind), and their AA contrast
+  in light and dark. Single-engine (chromium). Run it after touching `sw.js`'s
+  cache name or the version code of `common.js`.
 - `screenshots/` — output, gitignored. Re-generated on every run.
 - `README.md` — this file.
 
