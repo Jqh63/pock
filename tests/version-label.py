@@ -25,13 +25,24 @@ Quatre couches, exprès :
   E. CONTRASTE des marques ✦ et ✓ (AA 4.5:1), 5 pages × clair/sombre :
      contrast.py ne les voit jamais (elles n'apparaissent qu'après une mise à
      jour) ; le ✦ en --accent de hta tombait à 2.3:1.
+  F. VRAI SERVEUR — copie temporaire servie, sw.js modifié après le 1er
+     chargement : la relecture de la page doit voir la NOUVELLE valeur et
+     sw.js ne doit pas être dans le cache du SW. Les couches D/E simulent le
+     serveur dans la page et ne voyaient donc pas le SW qui servait sw.js
+     depuis son cache (✓ à tort après un déploiement, 2026-11-07).
 
 Lancer : python3 tests/version-label.py
 """
 
 import json
 import re
+import shutil
+import subprocess
 import sys
+import tempfile
+import threading
+from functools import partial
+from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 
 from browser_guard import ensure as _ensure_browser
@@ -262,6 +273,37 @@ with serve_repo() as base, sync_playwright() as p:
                 check(r >= 4.5, f"contraste {mid} {fname} {scheme} → {r:.2f}")
             ctx.close()
     b.close()
+
+
+class _Quiet(SimpleHTTPRequestHandler):
+    def log_message(self, *a):
+        pass
+
+
+# F. Vrai serveur : copie des fichiers servis, sw.js réécrit en cours de route.
+with tempfile.TemporaryDirectory() as tmp, sync_playwright() as p:
+    for f in subprocess.run(["git", "-C", str(REPO), "ls-files"], capture_output=True,
+                            text=True, check=True).stdout.split():
+        if not f.startswith(("tests/", "sync/", ".")):
+            (Path(tmp) / f).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(REPO / f, Path(tmp) / f)
+    srv = HTTPServer(("127.0.0.1", 0), partial(_Quiet, directory=tmp))
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    b = p.chromium.launch()
+    page = b.new_context().new_page()
+    page.goto(f"http://127.0.0.1:{srv.server_address[1]}/suivi-km-loa.html")
+    page.wait_for_function("() => navigator.serviceWorker.controller", timeout=10000)
+    page.reload()
+    page.wait_for_function("() => !document.getElementById('pockLatest').hidden", timeout=10000)
+    sw = Path(tmp) / "sw.js"
+    sw.write_text(sw.read_text().replace(m.group(1), "pock-v1-2099-01-01"))
+    seen = page.evaluate("""() => fetch('./sw.js', {cache: 'no-store'}).then(r => r.text())
+                              .then(t => (/CACHE_NAME = '([^']+)'/.exec(t) || [])[1])""")
+    check(seen == "pock-v1-2099-01-01", f"vrai serveur : la page relit {seen!r}")
+    cached = page.evaluate("() => caches.match('./sw.js').then(r => !!r)")
+    check(not cached, "vrai serveur : sw.js absent du cache du SW")
+    b.close()
+    srv.shutdown()
 
 print(f"\n{'FAIL' if fails else 'OK'} — {len(fails)} échec(s) ; version attendue {EXPECTED}")
 sys.exit(1 if fails else 0)
