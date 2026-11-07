@@ -234,10 +234,10 @@
       }).catch(() => {});
     }
     if (window.caches) {
+      // Même parser que le pied de page (common.js) : pas de 2e tri qui drift.
       caches.keys().then(names => {
-        const ours = names.filter(n => n.indexOf('pock-v') === 0).sort();
         document.getElementById('diagVersion').textContent =
-          'Version : ' + (ours.length ? ours[ours.length - 1] : 'cache absent (offline indisponible)');
+          'Version : ' + (pockVersionLabel(names) || 'cache absent (offline indisponible)');
       }).catch(() => {});
     }
     if ('serviceWorker' in navigator) {

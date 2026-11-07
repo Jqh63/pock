@@ -33,6 +33,12 @@ manually before a PR — not in CI (the GitHub Actions workflow
   populated with fictitious fixtures, plus a `color-scheme` pin (without it Chrome
   draws the date picker, selects and checkboxes light on a dark page). Single-engine
   (chromium). Run it after touching any colour, palette or `common.css`.
+- `version-label.py` — the version label you SEE: parser of `common.js`
+  (`pockVersionLabel`, transition `pock-vN` → dated, numeric order), the footer
+  of the hub + 4 apps over http once the SW is active, the hub's État line, and
+  the « mis à jour » banner (none on a first visit, shown once after a version
+  change, key kept out of export and sync). Single-engine (chromium). Run it
+  after touching `sw.js`'s cache name or the version code of `common.js`.
 - `screenshots/` — output, gitignored. Re-generated on every run.
 - `README.md` — this file.
 

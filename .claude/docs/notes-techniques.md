@@ -25,7 +25,7 @@ La roadmap, les décisions d'architecture et le contexte plus large vivent dans 
 
 ## État actuel
 
-- Service Worker : `pock-v16`
+- Service Worker : `CACHE_NAME` daté (`pock-v<gén>-<date>`, cf. CLAUDE.md § Versioning) — la version courante se lit dans `sw.js`
 - 3 apps live : covoiturage-rando, suivi-km-loa, bibliotheque
 - Panneau Export/Import sur le hub (JSON, mode fusion ou remplacement)
 - **Sync opt-in** (v16) : couche dans `common.js` + config sur le hub
@@ -173,7 +173,7 @@ Palette couleurs véhicules : `#3563e9`, `#00796b`, `#d97706`, `#9333ea`, `#dc26
 ## Service Worker
 
 ```
-const CACHE_NAME = 'pock-v15';  // bumper à chaque changement d'assets
+const CACHE_NAME = 'pock-v1-2026-11-07a';  // date du jour (+ lettre) à chaque déploiement
 ```
 
 - Stratégie : cache-first, fallback réseau
@@ -204,7 +204,7 @@ if ('serviceWorker' in navigator) {
 4. Ajouter `<script src="common.js"></script>` AVANT le script de l'app (pour que `esc`, `genId`, la registration SW soient dispo)
 5. Ajouter une carte dans `index.html` (emoji icon + couleur accent)
 6. Ajouter le fichier à l'array `ASSETS` dans `sw.js`
-7. Incrémenter `CACHE_NAME` dans `sw.js` (`pock-vN`)
+7. Bumper `CACHE_NAME` dans `sw.js` : date du jour (+ lettre si 2e déploiement), cf. CLAUDE.md § Versioning
 8. Documenter la clé localStorage utilisée (ce fichier + README.md)
 9. Tester iOS Safari (font-size 16px+, inputmode, tap targets) et Android Chrome
 10. Vérifier que le zip de release ne contient que les fichiers du repo (pas de doc perso)

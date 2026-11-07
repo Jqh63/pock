@@ -82,7 +82,26 @@ Le service worker (`sw.js`) cache l'app. **Bumper la version `CACHE`
 à chaque release qui change l'UX** pour déclencher l'auto-update PWA
 chez les utilisateurs installés :
 
-- `sw.js` : `const CACHE_NAME = 'pock-vN'` — entier monotone, +1 à chaque release UX (v1 → v14…). Pas de marqueur de version dans le footer (le footer affiche `Pock · Données stockées localement`).
+```js
+const CACHE_NAME = 'pock-v1-2026-11-07a';
+//                     ^  ^^^^^^^^^^^
+//                     |  date du déploiement, + une lettre pour un 2e
+//                     |  déploiement le même jour (a, b, c…)
+//                     génération : ne bouge que sur une refonte de fond
+```
+
+- **C'est la date qu'on bumpe**, à chaque fois : la date du jour, plus la
+  lettre suivante si on a déjà livré aujourd'hui. La génération ne bouge pas
+  pour un fix, un test ou une retouche UI. Même convention que la PWA WoL
+  (`plex-jqh-omv`, `version.js`) et dash-pat : « v<génération> · <date> ».
+- `sw.js` reste le **seul** marqueur. `common.js` en dérive le libellé
+  (`pockVersionLabel`) : pied de page `Pock v1 · 2026-11-07a` sur chaque app,
+  ligne « Version » du panneau État du hub, et bandeau « Pock mis à jour : …
+  (avant : …) » quand l'appareil vient de prendre une nouvelle version (clé
+  d'appareil `pockVersionSeen`, hors préfixe `pock-` : ni sync ni export).
+  Épinglé par `tests/version-label.py`.
+- Avant le 2026-11-07 : `pock-vN` (entier, jusqu'à `pock-v52`) — le parser le
+  lit encore pour la transition, le format daté passe toujours devant.
 
 Un changement **doc-only** ne nécessite pas de bump. En cas de doute,
 bumper : un bump superflu ne coûte qu'un cycle d'update, un bump oublié bloque
@@ -93,8 +112,8 @@ suivi-km-loa…) derrière un seul `sw.js`. Vérifier que le bump couvre bien l'
 touchée et que `sw.js` précache la liste à jour.
 
 Pas de staging — `main` est en production via GitHub Pages. Tester
-sur l'URL publique après merge (hard-reload, puis confirmer la nouvelle version
-`CACHE` du SW dans devtools → Application).
+sur l'URL publique après merge : le pied de page de l'app doit afficher la
+nouvelle date.
 
 ## Outillage .claude/
 

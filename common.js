@@ -84,6 +84,79 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+// ---------- Version affichée ----------
+// Source unique : le nom du cache SW (sw.js), rien de codé en dur ici — même
+// convention que la PWA WoL (version.js) et dash-pat : « v<gén> · <date> ».
+// La date dit « mon téléphone a-t-il pris le nouveau code ? » ; la génération
+// ne bouge que sur une refonte de fond.
+// Clé de tri, la plus haute gagne : le format daté passe toujours devant
+// l'ancien `pock-vN` (les deux caches coexistent un instant à l'update), et
+// l'ancien est zéro-paddé (sinon le tri textuel met pock-v9 devant pock-v52).
+function pockParseCacheName(n) {
+  let m = /^pock-v(\d+)-(\d{4}-\d{2}-\d{2}[a-z]?)$/.exec(n);
+  if (m) return { key: '1' + m[2], label: 'v' + m[1] + ' · ' + m[2] };
+  m = /^pock-v(\d+)$/.exec(n);
+  if (m) return { key: '0' + ('000000' + m[1]).slice(-6), label: 'v' + m[1] };
+  return null;
+}
+
+// names → libellé, ou null si aucun cache à nous (l'appelant garde alors son
+// placeholder plutôt que d'afficher une version fausse).
+function pockVersionLabel(names) {
+  let best = null;
+  (names || []).forEach(n => {
+    const c = typeof n === 'string' ? pockParseCacheName(n) : null;
+    if (c && (!best || c.key > best.key)) best = c;
+  });
+  return best ? best.label : null;
+}
+
+// Passe le libellé à `paint` maintenant ET quand le SW est prêt : à la 1re
+// visite le cache n'existe pas encore au chargement (même piège que la PWA).
+function pockWithVersion(paint) {
+  if (!window.caches) return;
+  const emit = () => caches.keys()
+    .then(names => { const l = pockVersionLabel(names); if (l) paint(l); })
+    .catch(() => {});
+  emit();
+  if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+    navigator.serviceWorker.ready.then(emit).catch(() => {});
+  }
+}
+
+// Pied de page de version sur chaque page + bandeau « mis à jour » quand le
+// libellé change sur cet appareil. Clé SANS préfixe `pock-` : ni synchronisée,
+// ni exportée, ni effacée par « Tout supprimer » — c'est un état d'appareil.
+const POCK_VERSION_SEEN = 'pockVersionSeen';
+function pockShowVersion() {
+  const foot = document.createElement('div');
+  foot.className = 'pock-version';
+  foot.id = 'pockVersion';
+  foot.textContent = 'Pock —';
+  document.body.appendChild(foot);
+  pockWithVersion(label => {
+    foot.textContent = 'Pock ' + label;
+    let prev = null;
+    try { prev = localStorage.getItem(POCK_VERSION_SEEN); } catch (e) {}
+    if (prev === label) return;
+    try { localStorage.setItem(POCK_VERSION_SEEN, label); } catch (e) {}
+    if (prev === null || document.getElementById('pockUpdated')) return;
+    const b = document.createElement('div');
+    b.className = 'pock-updated';
+    b.id = 'pockUpdated';
+    b.setAttribute('role', 'status');
+    b.textContent = 'Pock mis à jour : ' + label + ' (avant : ' + prev + ')';
+    b.addEventListener('click', () => b.remove());
+    document.body.appendChild(b);
+    setTimeout(() => b.remove(), 8000);
+  });
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', pockShowVersion);
+} else {
+  pockShowVersion();
+}
+
 // Données = localStorage seul (Tension n'a pas d'autre copie sans sync) :
 // demander au navigateur de ne pas les évincer (Safari efface le stockage
 // d'un site non installé resté inutilisé quelques jours). Refus ou API
