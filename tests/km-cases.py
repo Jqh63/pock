@@ -2,7 +2,7 @@
 """Cas d'usage réels du suivi km (voiture neuve en LOA), horloge figée.
 
 Chaque cas reproduit un geste réel et vérifie que tous les écrans disent la même
-chose. Tous échouaient sur le code d'avant fix/km-coherence (2026-11-07).
+chose. Cas 1-7 rouges avant fix/km-coherence, 8-11 avant feat/km-ux (2026-11-07).
 Données fictives. Single-engine comme km-anchor.py.
 Usage: python3 tests/km-cases.py [repo_dir]
 """
@@ -114,6 +114,41 @@ with sync_playwright() as p:
     hero_cls = pg.locator(".hero-delta").get_attribute("class")
     bar = pg.locator(".progress-bar").nth(1).get_attribute("style")
     check("6b écart rouge ⇔ barre km rouge", "danger" in hero_cls and "#e5393f" in bar, (hero_cls, bar))
+
+    # 8. Suppression d'un relevé : confirmation, et « Annuler » ne supprime rien.
+    ctx = b.new_context(timezone_id="Europe/Paris"); pg = ctx.new_page(); pg.clock.set_fixed_time(NOW)
+    asked = []
+    pg.on("dialog", lambda d: (asked.append(d.message), d.dismiss()))
+    pg.goto(f"file://{repo}/suivi-km-loa.html")
+    pg.evaluate("""() => { localStorage.setItem('pock-km-vehicles', JSON.stringify([{id:'t1',name:'V',color:'#3563e9',startDate:'2025-03-15',durationMonths:37,kmPerYear:10000,excessCostPerKm:0.15}]));
+        localStorage.setItem('pock-km-active','t1'); localStorage.setItem('pock-km-t1', JSON.stringify([{id:'a',date:'2026-10-01',km:15000}])); }""")
+    pg.reload(); pg.click(".entry-actions .del")
+    check("8 suppression : confirmation demandée, Annuler garde le relevé",
+          len(asked) == 1 and len(stored(pg)) == 1, (asked, stored(pg)))
+
+    # 9. Correction d'un relevé avec une faute de frappe (15000 → 1500).
+    pg.evaluate("""() => localStorage.setItem('pock-km-t1', JSON.stringify([{id:'a',date:'2026-09-01',km:14000},{id:'b',date:'2026-10-01',km:15000}]))""")
+    pg.reload(); asked.clear()
+    pg.locator(".entry").first.locator("button").first.click()  # le plus récent (b)
+    pg.fill("#editInput", "1500"); pg.locator(".entry").first.locator("button").first.click()
+    check("9 édition : compteur qui baisse ⇒ confirmation, Annuler ne modifie rien",
+          len(asked) == 1 and "baisse" in asked[0] and stored(pg)[1]["km"] == 15000, (asked, stored(pg)))
+
+    # 10. Relevé oublié saisi après coup, avec un compteur supérieur au relevé suivant.
+    asked.clear()
+    pg.fill("#inputDate", "2026-08-01"); pg.fill("#inputKm", "16000"); pg.click(".qa-btn")
+    check("10 ajout dans le passé au-dessus du relevé suivant ⇒ confirmation",
+          len(asked) == 1 and len(stored(pg)) == 2, (asked, stored(pg)))
+
+    # 11. Mode sombre : la zone de dépassement du graphique n'est pas un aplat clair.
+    ctx = b.new_context(color_scheme="dark", timezone_id="Europe/Paris"); pg = ctx.new_page(); pg.clock.set_fixed_time(NOW)
+    pg.goto(f"file://{repo}/suivi-km-loa.html")
+    pg.evaluate("""() => { localStorage.setItem('pock-km-vehicles', JSON.stringify([{id:'t1',name:'V',color:'#3563e9',startDate:'2025-01-01',durationMonths:37,kmPerYear:10000,excessCostPerKm:0.15}]));
+        localStorage.setItem('pock-km-active','t1'); localStorage.setItem('pock-km-t1', JSON.stringify([{id:'a',date:'2025-06-01',km:6000},{id:'b',date:'2026-10-01',km:21000}])); }""")
+    pg.reload()
+    lum = pg.evaluate(r"""() => { const f = getComputedStyle(document.querySelector('.chart-wrap svg rect')).fill;
+        const [r,g,b] = f.match(/\d+/g).map(Number); return (r+g+b)/3; }""")
+    check("11 mode sombre : zone de dépassement sombre", lum < 80, lum)
 
     b.close()
 

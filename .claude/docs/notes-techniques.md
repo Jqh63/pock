@@ -126,7 +126,7 @@ Palette couleurs véhicules : `#3563e9`, `#00796b`, `#d97706`, `#9333ea`, `#dc26
 - Projection cappée à `Math.max(currentKm, projected)` (ne peut jamais être < km actuel)
 - Quick-add toujours visible (date + km + bouton), pas de modal
 - Puis KPIs, barres de progression (temps vs km), graphique SVG, liste des relevés
-- Validation : refuse dates futures et dates avant début contrat (alert), confirm si le km baisse vs relevé précédent ; saisie numérique via `parseIntInput` (accepte « 12 345 » / « 12.345 », refuse le reste avec un message — `parseInt` tronquait « 12 345 » en 12) ; date par défaut en heure locale (`localISODate`)
+- Validation : refuse dates futures et dates avant début contrat (alert), confirm si le km est sous le relevé précédent ou au-dessus du suivant (`confirmCounterOrder`, ajout **et** édition) ; suppression d'un relevé confirmée ; saisie numérique via `parseIntInput` (accepte « 12 345 » / « 12.345 », refuse le reste avec un message — `parseInt` tronquait « 12 345 » en 12) ; date par défaut en heure locale (`localISODate`)
 - Si contrat terminé : banner "Contrat terminé" + coût final (plus de projection)
 - Si contrat pas encore commencé : banner "Contrat démarre dans X jours"
 - **Bouton "Réinitialiser les relevés"** (v13) dans le header du véhicule actif : vide les relevés sans supprimer la config du véhicule
