@@ -121,11 +121,12 @@ Palette couleurs véhicules : `#3563e9`, `#00796b`, `#d97706`, `#9333ea`, `#dc26
 - En haut : sélecteur véhicules + bouton "+" pour en ajouter
 - Hero "Écart vs prévu" en grand (l'info principale)
 - Carte "Coût km excédentaires" si un taux est défini : actuel + projeté fin de contrat
-- **Projection conditionnelle** : un seul relevé suffit. Le rythme est calculé sur la durée écoulée du contrat (`currentKm / daysElapsed`), pas sur l'écart entre relevés — ça évite de devoir maintenir un historique dense, ce qui n'est pas dans l'usage réel (effacement cache, changement d'appareil, saisies espacées). Affichée à partir de 30 jours de contrat (en dessous, le rythme est trop bruité). Si le dernier relevé date de plus de 60 jours, un warning "dernier relevé il y a X j, pense à mettre à jour" apparaît à côté du chiffre.
+- **Projection conditionnelle** : un seul relevé suffit. Le rythme est calculé sur la durée écoulée du contrat (`currentKm / daysElapsed`), pas sur l'écart entre relevés — ça évite de devoir maintenir un historique dense, ce qui n'est pas dans l'usage réel (effacement cache, changement d'appareil, saisies espacées). Affichée à partir de 30 jours de contrat (en dessous, le rythme est trop bruité). Si le dernier relevé date de plus de 60 jours, un bandeau "Dernier relevé il y a X j" s'affiche sous l'en-tête, coût au km renseigné ou non.
+- **Un seul ancrage : la date du dernier relevé** (2026-11-07). Écart, projection, « Tu peux rouler », « Budget restant », couleur et repère de la barre km sont tous calculés à cette date ; seule la barre « Temps écoulé » et la ligne « Aujourd'hui » du graphique suivent aujourd'hui. Barre km rouge ⇔ écart > 0 (même verdict que le grand chiffre). Sans relevé : écart « — / Aucun relevé ». Attendu plafonné au forfait (relevé de restitution après la fin), liste comprise.
 - Projection cappée à `Math.max(currentKm, projected)` (ne peut jamais être < km actuel)
 - Quick-add toujours visible (date + km + bouton), pas de modal
 - Puis KPIs, barres de progression (temps vs km), graphique SVG, liste des relevés
-- Validation : refuse dates futures et dates avant début contrat (alert), confirm si le km baisse vs relevé précédent
+- Validation : refuse dates futures et dates avant début contrat (alert), confirm si le km baisse vs relevé précédent ; saisie numérique via `parseIntInput` (accepte « 12 345 » / « 12.345 », refuse le reste avec un message — `parseInt` tronquait « 12 345 » en 12) ; date par défaut en heure locale (`localISODate`)
 - Si contrat terminé : banner "Contrat terminé" + coût final (plus de projection)
 - Si contrat pas encore commencé : banner "Contrat démarre dans X jours"
 - **Bouton "Réinitialiser les relevés"** (v13) dans le header du véhicule actif : vide les relevés sans supprimer la config du véhicule

@@ -10,6 +10,11 @@ manually before a PR — not in CI (the GitHub Actions workflow
 
 - `smoke.py` — entry point. Iterates over the hub + 4 apps, loads each over
   loopback HTTP, captures errors, screenshots to `screenshots/`.
+- `km-cases.py` — real use cases of the km tracker (new car, fixed clock,
+  Europe/Paris): thousands separator typed, reading just after midnight, no
+  reading yet, return reading after contract end, allowance already exceeded,
+  stale reading, small overrun. Checks every widget tells the same story.
+  Single-engine. Run it after touching `suivi-km-loa.html`.
 - `import-guard.py` — the entry guard of `common.js`: an import file or a
   shared sync blob whose raw-interpolated fields (`id`, `color`, `bg`, `date`,
   `startDate`, `km`) could break out of their JS string or HTML attribute is

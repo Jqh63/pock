@@ -48,6 +48,7 @@
   .banner { padding: 10px 14px; border-radius: 10px; font-size: 13px; font-weight: 600; margin-bottom: 14px; text-align: center; }
   .banner-info { background: #eef2ff; color: var(--accent); border: 1px solid #c7d7fe; }
   .banner-done { background: var(--success-bg); color: #166534; border: 1px solid var(--success-border); }
+  .banner-warn { background: #fffbeb; color: #92400e; border: 1px solid #fcd34d; }
 
   /* Cost card */
   .cost-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin-bottom: 14px; }
@@ -164,6 +165,7 @@
     .sel-btn.active { background: #1a2236; }
     .banner-info { background: #1a2236; border-color: #2a3a5e; }
     .banner-done { color: #6ee7b7; }
+    .banner-warn { background: #2a2210; color: #fcd34d; border-color: #5e4a1a; }
     .progress-track { background: #20262f; }
     .btn-dark { background: #2a313f; color: var(--text); }
     .form-field input, .form-field select { background: var(--surface); }
@@ -240,6 +242,23 @@ function setEntries(v, data) {
   localStorage.setItem(key, JSON.stringify(data));
 }
 
+// Saisie numérique tolérante aux séparateurs de milliers (« 12 345 », « 12.345 »)
+// mais stricte sur le reste : parseInt("12 345") rendait 12 sans prévenir.
+function parseIntInput(s) {
+  const t = String(s ?? "").replace(/[\s.]/g, "");
+  return /^\d+$/.test(t) ? parseInt(t, 10) : NaN;
+}
+// Montant décimal (virgule ou point) ; vide = 0.
+function parseDecimalInput(s) {
+  const t = String(s ?? "").replace(/\s/g, "").replace(",", ".");
+  if (t === "") return 0;
+  return /^\d+(\.\d+)?$/.test(t) ? parseFloat(t) : NaN;
+}
+// Date du jour en heure LOCALE (toISOString() donne la date UTC : la veille
+// entre minuit et 1-2 h en France).
+function localISODate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 function daysBetween(a, b) { return Math.floor((b - a) / 864e5); }
 function fmtDate(d) { return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }); }
 function fmtNum(n) { return typeof n === "number" ? n.toLocaleString("fr-FR") : esc(n); }
@@ -299,7 +318,12 @@ function render() {
   const dt = deltaText(delta);
   const monthsRemaining = Math.max(0, Math.ceil((C.end - now) / (864e5 * 30.44)));
   const kmRemaining = C.totalKm - currentKm;
-  const kmPerMonth = monthsRemaining > 0 ? Math.round(kmRemaining / monthsRemaining) : 0;
+  // Budget restant ancré, comme l'écart, sur la date du dernier relevé : le km
+  // restant est mesuré à cette date, le diviser par les jours restants à
+  // aujourd'hui gonflait l'allocation d'autant que le relevé vieillissait.
+  const daysRemaining = Math.max(0, totalDays - expBaseDays);
+  const monthsRemainingAtAnchor = daysRemaining / 30.44;
+  const kmPerMonth = (monthsRemainingAtAnchor > 0 && kmRemaining > 0) ? Math.round(kmRemaining / Math.max(1, monthsRemainingAtAnchor)) : 0;
 
   // Cost projections — un seul relevé suffit, le rythme s'appuie sur la durée
   // écoulée du contrat JUSQU'AU DERNIER RELEVÉ (pas jusqu'à aujourd'hui : un
@@ -318,8 +342,8 @@ function render() {
   const currentCost = currentExcess * excessRate;
   const fmtEur = n => n.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
 
-  // #4 Allowance : combien de km/jour on peut encore rouler pour finir pile dans le forfait.
-  const daysRemaining = Math.max(0, totalDays - daysElapsed);
+  // #4 Allowance : combien de km/jour on peut encore rouler pour finir pile dans
+  // le forfait, à partir du dernier relevé (daysRemaining ci-dessus).
   const kmPerDayAllowed = (daysRemaining > 0 && kmRemaining > 0) ? kmRemaining / daysRemaining : 0;
   // Trop rapide = le rythme passé dépasse ce qu'on peut encore se permettre (et il reste du contrat).
   const goingTooFast = !contractEnded && daysRemaining > 0 && paceKmPerDay > kmPerDayAllowed && currentKm > 0;
@@ -338,7 +362,8 @@ function render() {
     d.setMonth(d.getMonth() + m);
     chartData.push({ month: m, label: d.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }), expected: Math.round(C.kmPerDay * daysBetween(C.start, d)) });
   }
-  const entryPts = sorted.map(e => ({ month: Math.max(0, daysBetween(C.start, new Date(e.date))) / 30.44, km: e.km }));
+  // Plafonné à la fin du contrat : un relevé de restitution sortait du cadre.
+  const entryPts = sorted.map(e => ({ month: Math.min(C.durationMonths, Math.max(0, daysBetween(C.start, new Date(e.date))) / 30.44), km: e.km }));
 
   const W = 700, H = 260, P = { t: 20, r: 30, b: 40, l: 55 };
   const cw = W - P.l - P.r, ch = H - P.t - P.b;
@@ -360,11 +385,13 @@ function render() {
   const showOverBand = yMax > C.totalKm * 1.001;
   const todayM = daysElapsed / 30.44;
   const showTodayLine = !contractEnded && !notStarted && todayM <= C.durationMonths;
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = localISODate(now);
 
   let bannerHtml = '';
   if (notStarted) { const du = Math.abs(rawDaysElapsed); bannerHtml = `<div class="banner banner-info">Contrat démarre dans ${du} jour${du > 1 ? 's' : ''}</div>`; }
   else if (contractEnded) { bannerHtml = `<div class="banner banner-done">Contrat terminé — ${fmtNum(currentKm)} km parcourus sur ${fmtNum(C.totalKm)} autorisés</div>`; }
+  // Tous les chiffres sont datés du dernier relevé : le dire, coût au km ou non.
+  else if (lastEntryStale) { bannerHtml = `<div class="banner banner-warn">⚠️ Dernier relevé il y a ${lastEntryAgeDays} j — les chiffres datent de ce relevé, pense à le mettre à jour</div>`; }
 
   const selectorHtml = vehicles.map(v => `
     <button class="sel-btn ${v.id === activeId ? 'active' : ''}" onclick="switchVehicle('${v.id}')" ${v.id === activeId ? `style="border-color:${v.color};box-shadow:0 0 0 1px ${v.color}"` : ''}>
@@ -389,9 +416,8 @@ function render() {
             <div class="cost-item-detail">${projectedExcess > 0 ? `+${fmtNum(projectedExcess)} km estimés` : 'dans le forfait'}</div>
           </div>`;
         const baseTxt = `Projection : rythme moyen ${Math.round(paceKmPerDay)} km/j jusqu'au dernier relevé`;
-        const staleTxt = lastEntryStale ? ` · ⚠️ dernier relevé il y a ${lastEntryAgeDays} j, pense à mettre à jour` : '';
         const overrunTxt = overrunDate ? `<div class="cost-basis" style="font-style:normal;font-weight:700;color:var(--danger)">⚠️ Forfait épuisé le ${fmtDate(overrunDate)} au rythme actuel</div>` : '';
-        basisNote = `${overrunTxt}<div class="cost-basis">${baseTxt}${staleTxt}</div>`;
+        basisNote = `${overrunTxt}<div class="cost-basis">${baseTxt}</div>`;
       } else if (currentKm === 0) {
         basisNote = `<div class="cost-basis">Projection indisponible : aucun relevé saisi</div>`;
       } else {
@@ -446,14 +472,17 @@ function render() {
       <button class="qa-btn" style="background:${ACCENT}" onclick="addEntry()">+ Ajouter</button>
     </div>
 
-    <div class="hero-delta ${dt.cls}">
+    ${latest ? `<div class="hero-delta ${dt.cls}">
       <div class="hero-delta-label">Écart vs prévu</div>
       <div class="hero-delta-value">${dt.sign}${fmtNum(dt.abs)} km</div>
       <div class="hero-delta-unit">${dt.label}</div>
-      <div class="hero-delta-detail">${latest
-        ? `${fmtNum(currentKm)} parcourus · ${fmtNum(expectedKm)} attendus au relevé du ${fmtDate(lastEntryDate)}${lastEntryAgeDays >= 1 ? ` (il y a ${lastEntryAgeDays} j)` : ''}`
-        : `${fmtNum(currentKm)} parcourus · ${fmtNum(expectedKm)} attendus à ce jour`}</div>
-    </div>
+      <div class="hero-delta-detail">${fmtNum(currentKm)} parcourus · ${fmtNum(expectedKm)} attendus au relevé du ${fmtDate(lastEntryDate)}${lastEntryAgeDays >= 1 ? ` (il y a ${lastEntryAgeDays} j)` : ''}</div>
+    </div>` : `<div class="hero-delta">
+      <div class="hero-delta-label">Écart vs prévu</div>
+      <div class="hero-delta-value">—</div>
+      <div class="hero-delta-unit">Aucun relevé</div>
+      <div class="hero-delta-detail">Saisis ton compteur pour comparer au prévu (${fmtNum(expectedKm)} km attendus à ce jour)</div>
+    </div>`}
 
     ${costCardHtml}
 
@@ -478,8 +507,8 @@ function render() {
       <div class="progress-group">
         <div class="progress-head"><span class="progress-label">Kilomètres utilisés</span><span class="progress-pct">${kmProgress.toFixed(1)}%</span></div>
         <div class="progress-track">
-          <div class="progress-bar" style="width:${Math.min(100, kmProgress)}%;background:${kmProgress > timeProgress + 5 ? '#e5393f' : '#0d9668'}"></div>
-          <div class="progress-marker" style="left:${Math.min(100, timeProgress)}%"></div>
+          <div class="progress-bar" style="width:${Math.min(100, kmProgress)}%;background:${latest && delta > 0 ? '#e5393f' : '#0d9668'}"></div>
+          <div class="progress-marker" style="left:${Math.min(100, (expectedKm / C.totalKm) * 100)}%"></div>
         </div>
         <div class="progress-detail">${fmtNum(currentKm)} / ${fmtNum(C.totalKm)} km — attendu : ${fmtNum(expectedKm)} km</div>
       </div>
@@ -511,7 +540,7 @@ function render() {
       <div class="card-title">Relevés</div>
       ${sorted.length===0?'<div class="empty">Aucun relevé. Saisis ton compteur ci-dessus !</div>':`
         <div class="entry-list">${[...sorted].reverse().map(e=>{
-          const d=new Date(e.date);const dfs=Math.max(0,daysBetween(C.start,d));const exp=Math.round(C.kmPerDay*dfs);const diff=e.km-exp;
+          const d=new Date(e.date);const dfs=Math.min(totalDays,Math.max(0,daysBetween(C.start,d)));const exp=Math.round(C.kmPerDay*dfs);const diff=e.km-exp;
           const isEditing = editingId!==null && String(editingId)===String(e.id);
           return`<div class="entry"><div class="entry-date">${isEditing?`<input class="edit-input" type="date" id="editDateInput" value="${e.date}" style="width:100%;max-width:150px">`:d.toLocaleDateString("fr-FR",{day:"numeric",month:"short",year:"numeric"})}</div><div class="entry-vals"><div class="entry-km">${isEditing?`<input class="edit-input" type="text" inputmode="numeric" pattern="[0-9]*" id="editInput" value="${esc(String(editKmVal))}" onkeydown="if(event.key==='Enter')saveEdit('${e.id}')">`:`${fmtNum(e.km)} km`}</div><div class="entry-delta" style="color:${diff>0?'var(--danger)':'var(--success)'}">${diff>0?'+':''}${fmtNum(diff)} km</div></div><div class="entry-actions">${isEditing?`<button onclick="saveEdit('${e.id}')" aria-label="Valider">✓</button>`:`<button onclick="startEdit('${e.id}',${e.km},'${e.date}')" aria-label="Modifier le relevé">✎</button>`}<button class="del" onclick="deleteEntry('${e.id}')" aria-label="Supprimer le relevé">✕</button></div></div>`;
         }).join('')}</div>`}
@@ -538,20 +567,30 @@ function vehicleFormHtml(v) {
   </div>`;
 }
 
-function addVehicle() {
+// Lit et valide le formulaire véhicule ; null (après message) si invalide.
+function readVehicleForm(defaultColor) {
   const name = document.getElementById("vName")?.value?.trim();
-  const color = document.getElementById("vColor")?.value || COLORS[vehicles.length % COLORS.length];
+  const color = document.getElementById("vColor")?.value || defaultColor;
   const startDate = document.getElementById("vStart")?.value;
-  const durationMonths = parseInt(document.getElementById("vMonths")?.value);
-  const kmPerYear = parseInt(document.getElementById("vKmYear")?.value);
-  const rawExcess = (document.getElementById("vExcessCost")?.value || "").replace(",", ".");
-  const excessCostPerKm = parseFloat(rawExcess) || 0;
-  if (!name || !startDate || !durationMonths || !kmPerYear || durationMonths < 1 || kmPerYear < 1) {
-    alert("Remplis tous les champs (nom, date, durée, km/an).");
-    return;
+  const durationMonths = parseIntInput(document.getElementById("vMonths")?.value);
+  const kmPerYear = parseIntInput(document.getElementById("vKmYear")?.value);
+  const excessCostPerKm = parseDecimalInput(document.getElementById("vExcessCost")?.value);
+  if (!name || !startDate || !(durationMonths >= 1) || !(kmPerYear >= 1)) {
+    alert("Remplis tous les champs (nom, date, durée, km/an) avec des nombres entiers.");
+    return null;
   }
+  if (isNaN(excessCostPerKm)) {
+    alert("Coût par km excédentaire invalide (ex. 0,15).");
+    return null;
+  }
+  return { name, color, startDate, durationMonths, kmPerYear, excessCostPerKm };
+}
+
+function addVehicle() {
+  const f = readVehicleForm(COLORS[vehicles.length % COLORS.length]);
+  if (!f) return;
   const id = genId();
-  vehicles.push({ id, name, color, startDate, durationMonths, kmPerYear, excessCostPerKm });
+  vehicles.push({ id, ...f });
   saveVehicles();
   activeId = id; localStorage.setItem(ACTIVE_KEY, id);
   showAddVehicle = false;
@@ -562,18 +601,9 @@ function editVehicle(id) { activeId = id; localStorage.setItem(ACTIVE_KEY, id); 
 
 function saveVehicleEdit() {
   const V = getVehicle(); if (!V) return;
-  const name = document.getElementById("vName")?.value?.trim();
-  const color = document.getElementById("vColor")?.value || V.color;
-  const startDate = document.getElementById("vStart")?.value;
-  const durationMonths = parseInt(document.getElementById("vMonths")?.value);
-  const kmPerYear = parseInt(document.getElementById("vKmYear")?.value);
-  const rawExcess = (document.getElementById("vExcessCost")?.value || "").replace(",", ".");
-  const excessCostPerKm = parseFloat(rawExcess) || 0;
-  if (!name || !startDate || !durationMonths || !kmPerYear || durationMonths < 1 || kmPerYear < 1) {
-    alert("Remplis tous les champs (nom, date, durée, km/an).");
-    return;
-  }
-  Object.assign(V, { name, color, startDate, durationMonths, kmPerYear, excessCostPerKm });
+  const f = readVehicleForm(V.color);
+  if (!f) return;
+  Object.assign(V, f);
   saveVehicles();
   editingVehicle = false;
   render();
@@ -607,8 +637,9 @@ function addEntry() {
   const V = getVehicle(); if (!V) return;
   const date = document.getElementById("inputDate")?.value;
   const kmRaw = document.getElementById("inputKm")?.value;
-  const km = parseInt(kmRaw);
-  if (!date || isNaN(km) || km < 0) return;
+  const km = parseIntInput(kmRaw);
+  if (!date) { alert("Choisis la date du relevé."); return; }
+  if (isNaN(km)) { alert("Kilométrage invalide : saisis le compteur en chiffres (ex. 12345)."); return; }
 
   const C = vehicleMeta(V);
   const entryDate = new Date(date);
@@ -646,7 +677,8 @@ function deleteEntry(id) { const V = getVehicle(); if (!V) return; setEntries(V,
 function startEdit(id, km, date) { editingId = id; editKmVal = km; editDateVal = date; render(); const el = document.getElementById("editInput"); if (el) el.focus(); }
 function saveEdit(id) {
   const el = document.getElementById("editInput"); if (!el) return;
-  const km = parseInt(el.value); if (isNaN(km) || km < 0) return;
+  const km = parseIntInput(el.value);
+  if (isNaN(km)) { alert("Kilométrage invalide : saisis le compteur en chiffres (ex. 12345)."); return; }
   const dateEl = document.getElementById("editDateInput");
   const date = dateEl && dateEl.value ? dateEl.value : null;
   const V = getVehicle(); if (!V) return;
