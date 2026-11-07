@@ -96,10 +96,16 @@ const CACHE_NAME = 'pock-v1-2026-11-07a';
   (`plex-jqh-omv`, `version.js`) et dash-pat : « v<génération> · <date> ».
 - `sw.js` reste le **seul** marqueur. `common.js` en dérive le libellé
   (`pockVersionLabel`) : pied de page `Pock v1 · 2026-11-07a` sur chaque app,
-  ligne « Version » du panneau État du hub, et bandeau « Pock mis à jour : …
-  (avant : …) » quand l'appareil vient de prendre une nouvelle version (clé
-  d'appareil `pockVersionSeen`, hors préfixe `pock-` : ni sync ni export).
-  Épinglé par `tests/version-label.py`.
+  ligne « Version » du panneau État du hub. Marques discrètes à côté de la
+  version (un appui affiche leur détail) — même règle dans la PWA WoL et
+  dash-pat :
+  - **✓** dernière version publiée : `sw.js` relu sur le réseau (no-store) à
+    l'ouverture, au retour sur l'app et toutes les 5 min, même `CACHE_NAME`.
+    Pas de verdict (hors ligne, serveur en retard) ⇒ pas de ✓.
+  - **⟳** une version plus récente est publiée et en cours de chargement.
+  - **✦** mise à jour reçue sur cet appareil depuis moins de 24 h (« avant : … »),
+    clé d'appareil `pockVersionSeen`, hors préfixe `pock-` : ni sync ni export.
+  Épinglé par `tests/version-label.py` (règles, rendu, serveur simulé, contraste).
 - Avant le 2026-11-07 : `pock-vN` (entier, jusqu'à `pock-v52`) — le parser le
   lit encore pour la transition, le format daté passe toujours devant.
 

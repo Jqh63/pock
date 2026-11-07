@@ -124,32 +124,142 @@ function pockWithVersion(paint) {
   }
 }
 
-// Pied de page de version sur chaque page + bandeau « mis à jour » quand le
-// libellé change sur cet appareil. Clé SANS préfixe `pock-` : ni synchronisée,
-// ni exportée, ni effacée par « Tout supprimer » — c'est un état d'appareil.
+// Icône ✦ « mis à jour » à côté de la version,
+// visible 24 h après que CET appareil a pris une nouvelle version (assez long
+// pour la voir sans guetter le pied de page au 1er lancement). Même règle dans
+// la PWA WoL et dash-pat. Clé SANS préfixe `pock-` : ni synchronisée, ni
+// exportée, ni effacée par « Tout supprimer » — c'est un état d'appareil.
 const POCK_VERSION_SEEN = 'pockVersionSeen';
+const POCK_UPDATED_MS = 24 * 3600 * 1000;
+
+// (valeur stockée, libellé courant, maintenant) → { store, updated } :
+// `store` = ce qu'il faut réécrire (null = rien), `updated` = {prev, at} si
+// l'icône doit s'afficher. 1re visite : rien à signaler. Valeur d'avant le
+// 2026-11-07b (libellé brut, pas du JSON) : lue comme { label }.
+function pockVersionState(raw, label, now) {
+  let s = null;
+  if (raw) { try { s = JSON.parse(raw); } catch (e) { s = { label: raw }; } }
+  if (!s || typeof s !== 'object' || !s.label) {
+    return { store: { label }, updated: null };
+  }
+  if (s.label !== label) {
+    const next = { label, prev: s.label, at: now };
+    return { store: next, updated: { prev: next.prev, at: now } };
+  }
+  const fresh = s.prev && typeof s.at === 'number' && now - s.at < POCK_UPDATED_MS;
+  return { store: null, updated: fresh ? { prev: s.prev, at: s.at } : null };
+}
+
+// Dernière version publiée ? Le serveur fait foi : sw.js relu sur le réseau
+// (no-store), son CACHE_NAME comparé à celui qui tourne. (courant, serveur) →
+// 'latest' (✓), 'newer' (⟳ : le SW est en train de la charger, reload auto)
+// ou null (pas de verdict : hors ligne, réponse illisible, ou serveur en
+// retard sur l'appareil — le CDN de GitHub Pages peut servir l'ancien sw.js
+// quelques minutes après un déploiement). Jamais de ✓ sans avoir vérifié.
+function pockLatestState(current, server) {
+  const c = current && pockParseCacheName(current);
+  const s = server && pockParseCacheName(server);
+  if (!c || !s) return null;
+  if (s.key === c.key) return 'latest';
+  return s.key > c.key ? 'newer' : null;
+}
+
+function pockServerCacheName() {
+  return fetch('./sw.js', { cache: 'no-store' })
+    .then(r => r.ok ? r.text() : '')
+    .then(t => { const m = /const CACHE_NAME = '([^']+)'/.exec(t); return m ? m[1] : null; })
+    .catch(() => null);
+}
+
+// Le nom de cache qui tourne (le plus haut des nôtres), pour la comparaison.
+function pockCurrentCacheName() {
+  if (!window.caches) return Promise.resolve(null);
+  return caches.keys().then(names => {
+    let best = null, bestKey = null;
+    names.forEach(n => {
+      const c = pockParseCacheName(n);
+      if (c && (bestKey === null || c.key > bestKey)) { best = n; bestKey = c.key; }
+    });
+    return best;
+  }).catch(() => null);
+}
+
+function pockFmtWhen(t, withDay) {
+  const o = withDay ? { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }
+                    : { hour: '2-digit', minute: '2-digit' };
+  return new Date(t).toLocaleString('fr-FR', o);
+}
+
+// Pied de page : « Pock v1 · 2026-11-07b ✓ ✦ ». Chaque marque est un bouton :
+// pas de survol sur mobile ⇒ un appui affiche son détail sous la version.
 function pockShowVersion() {
   const foot = document.createElement('div');
   foot.className = 'pock-version';
   foot.id = 'pockVersion';
-  foot.textContent = 'Pock —';
+  const text = document.createElement('span');
+  text.id = 'pockVersionText';
+  text.textContent = 'Pock —';
+  const detail = document.createElement('div');
+  detail.id = 'pockVersionDetail';
+  detail.hidden = true;
+  const mark = (id, glyph, cls) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.id = id;
+    b.className = 'pock-mark ' + cls;
+    b.textContent = glyph;
+    b.hidden = true;
+    b.addEventListener('click', () => {
+      const same = !detail.hidden && detail.dataset.from === id;
+      detail.hidden = same;
+      detail.dataset.from = id;
+      detail.textContent = b.title;
+    });
+    return b;
+  };
+  const latest = mark('pockLatest', '✓', 'pock-mark-ok');
+  const newer = mark('pockNewer', '⟳', 'pock-mark-new');
+  const updated = mark('pockUpdated', '✦', 'pock-mark-new');
+  foot.append(text, latest, newer, updated, detail);
   document.body.appendChild(foot);
+
+  const setMark = (b, title) => {
+    b.hidden = !title;
+    b.title = title || '';
+    if (title) b.setAttribute('aria-label', title); else b.removeAttribute('aria-label');
+    if (!title && detail.dataset.from === b.id) detail.hidden = true;
+    if (title && !detail.hidden && detail.dataset.from === b.id) detail.textContent = title;
+  };
+
   pockWithVersion(label => {
-    foot.textContent = 'Pock ' + label;
-    let prev = null;
-    try { prev = localStorage.getItem(POCK_VERSION_SEEN); } catch (e) {}
-    if (prev === label) return;
-    try { localStorage.setItem(POCK_VERSION_SEEN, label); } catch (e) {}
-    if (prev === null || document.getElementById('pockUpdated')) return;
-    const b = document.createElement('div');
-    b.className = 'pock-updated';
-    b.id = 'pockUpdated';
-    b.setAttribute('role', 'status');
-    b.textContent = 'Pock mis à jour : ' + label + ' (avant : ' + prev + ')';
-    b.addEventListener('click', () => b.remove());
-    document.body.appendChild(b);
-    setTimeout(() => b.remove(), 8000);
+    text.textContent = 'Pock ' + label;
+    let raw = null;
+    try { raw = localStorage.getItem(POCK_VERSION_SEEN); } catch (e) {}
+    const st = pockVersionState(raw, label, Date.now());
+    if (st.store) {
+      try { localStorage.setItem(POCK_VERSION_SEEN, JSON.stringify(st.store)); } catch (e) {}
+    }
+    setMark(updated, st.updated &&
+      ('Mis à jour le ' + pockFmtWhen(st.updated.at, true) + ' — avant : ' + st.updated.prev));
   });
+
+  // À l'ouverture, au retour sur l'app, et toutes les 5 min si elle reste ouverte
+  // (mêmes déclencheurs que la recherche de mise à jour du SW plus haut).
+  const check = () => {
+    Promise.all([pockCurrentCacheName(), pockServerCacheName()]).then(([cur, srv]) => {
+      const v = pockLatestState(cur, srv);
+      const now = pockFmtWhen(Date.now(), false);
+      setMark(latest, v === 'latest' && ('Dernière version publiée (vérifié à ' + now + ')'));
+      setMark(newer, v === 'newer' &&
+        ('Version plus récente publiée : ' + pockVersionLabel([srv]) + ' — chargement en cours'));
+    });
+  };
+  check();
+  if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+    navigator.serviceWorker.ready.then(check).catch(() => {});
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+  setInterval(() => { if (!document.hidden) check(); }, 5 * 60 * 1000);
 }
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', pockShowVersion);
