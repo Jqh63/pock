@@ -1,0 +1,59 @@
+name: Browser tests
+
+# Les bancs Playwright de tests/ gardent ce que l'utilisateur voit (chargement
+# des apps, contraste, cas du suivi km, synchro entre deux appareils, libellé
+# de version). Jusqu'au 2026-11-12 ils ne tournaient que si quelqu'un y pensait.
+#
+# Rapporte, ne bloque pas : pas de protection de branche sur ce plan.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  # Le Playwright du poste sur lequel les bancs sont écrits.
+  PLAYWRIGHT_VERSION: 1.60.0
+
+jobs:
+  browser:
+    name: bancs navigateur
+    # Épinglé : Playwright 1.60.0 n'installe pas ses navigateurs sur ubuntu 26.04.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - name: Playwright, moteurs et dépendances de sync/app.py
+        run: |
+          python -m pip install --quiet "playwright==${PLAYWRIGHT_VERSION}" \
+            'fastapi==0.139.2' 'httpx==0.28.1'
+          python -m playwright install --with-deps chromium webkit
+      - name: Tous les bancs de tests/
+        run: |
+          set +e
+          fails=0; ran=0
+          for t in tests/*.py; do
+            n="$(basename "$t" .py)"
+            case "$n" in browser_guard) continue ;; esac   # un module, pas un banc
+            echo "::group::$n"
+            s=$(date +%s)
+            out="$(timeout 300 python "$t" 2>&1)"; rc=$?
+            printf '%s\n' "$out"
+            echo "::endgroup::"
+            echo "RESULT $n rc=$rc duration_s=$(( $(date +%s) - s ))"
+            ran=$((ran + 1))
+            # Un SKIP ne prouve rien : les deux moteurs sont installés ici.
+            if [ "$rc" -ne 0 ] || grep -qE '^[[:space:]]*(\[[a-z]+\] )?SKIP' <<<"$out"; then
+              echo "::error::$n en échec ou sauté (rc=$rc)"; fails=$((fails + 1))
+            fi
+          done
+          echo "ran=$ran failed=$fails"
+          # Une boucle vide ne doit pas se lire comme un vert.
+          [ "$ran" -ge 9 ] || { echo "::error::seulement $ran bancs joués"; exit 1; }
+          [ "$fails" -eq 0 ]
