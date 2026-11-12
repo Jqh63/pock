@@ -29,5 +29,8 @@ jobs:
         working-directory: sync
         run: python3 -m pytest -q tests/
 
+      - name: Banc de la garde de sync/deploy.sh
+        run: bash sync/tests/test_deploy_guard.sh
+
       - name: Banc du hook pre-push
         run: bash .githooks/test-pre-push.sh
