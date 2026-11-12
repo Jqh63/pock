@@ -2,9 +2,11 @@
 
 Lightweight Playwright smoke test suite. Validates that every Pock app
 loads cleanly (no uncaught JS errors, no console errors), has its
-expected title, and renders something paintable. Designed to be run
-manually before a PR — not in CI (the GitHub Actions workflow
-`.github/workflows/tests.yml` only runs `sync/tests` and the pre-push bench).
+expected title, and renders something paintable. Run it by hand while
+working; on every pull request and on `main`, the GitHub Actions workflow
+`.github/workflows/browser-tests.yml` plays every file of this folder on
+chromium and webkit (a SKIP counts as a failure there). It reports, it does
+not block. `.github/workflows/tests.yml` runs `sync/tests` and the pre-push bench.
 
 ## Layout
 
