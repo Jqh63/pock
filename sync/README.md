@@ -85,6 +85,10 @@ ssh wol-relay-deploy pock-sync-status
 ssh wol-relay-deploy logs-pock-sync
 ```
 
+`deploy.sh` deploys only what is merged: it fetches, then refuses (exit 4,
+nothing sent) unless `HEAD` is exactly `origin/main` with no tracked edit
+under `sync/`. Emergency override: `DEPLOY_ALLOW_UNMERGED=1`.
+
 > ⚠️ **The systemd unit is not deployable through this channel** (relay scan
 > finding F8, 2026-09-27): a unit is root-equivalent, so letting the deploy
 > key write one made that key root. A change to `pock-sync.service` = rerun

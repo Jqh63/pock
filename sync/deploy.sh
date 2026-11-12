@@ -16,12 +16,34 @@
 #   bash sync/deploy.sh
 #   WOL_RELAY_ALIAS=other-alias bash sync/deploy.sh
 #
-# Exit codes: 0 OK, 1 push/apply failed, 2 status KO post-restart.
+# Garde : ne déploie que ce qui est mergé. Refus (exit 4) si HEAD n'est pas
+# exactement origin/main (fetch à l'instant) ou si un fichier suivi est
+# modifié sous sync/ — sinon une branche non mergée, un clone en retard ou
+# une modif locale partirait en silence. Urgence seulement :
+# DEPLOY_ALLOW_UNMERGED=1 saute la garde, bruyamment.
+#
+# Exit codes: 0 OK, 1 push/apply failed, 2 status KO post-restart,
+#             4 garde : clone pas sur un origin/main propre (ou non mesuré), rien envoyé.
 
 set -euo pipefail
 
 ALIAS="${WOL_RELAY_ALIAS:-wol-relay-deploy}"
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+refuse() { echo "[deploy] REFUS — $1" >&2; echo "[deploy]   rien envoyé à la VM. Urgence : DEPLOY_ALLOW_UNMERGED=1" >&2; exit 4; }
+if [ "${DEPLOY_ALLOW_UNMERGED:-}" = "1" ]; then
+  echo "[deploy] WARN — DEPLOY_ALLOW_UNMERGED=1 : garde origin/main sautée, l'arbre de travail part tel quel" >&2
+else
+  git -C "$DIR" fetch --quiet origin main 2>/dev/null \
+    || refuse "git fetch origin main en échec : impossible de savoir si ce clone est à jour"
+  head_sha="$(git -C "$DIR" rev-parse HEAD)" && main_sha="$(git -C "$DIR" rev-parse origin/main)" \
+    || refuse "HEAD / origin/main illisibles"
+  [ "$head_sha" = "$main_sha" ] \
+    || refuse "HEAD (${head_sha:0:7}) n'est pas origin/main (${main_sha:0:7}) : merger d'abord, puis pull"
+  dirty="$(git -C "$DIR" status --porcelain --untracked-files=no -- "$DIR")" \
+    || refuse "git status en échec"
+  [ -z "$dirty" ] || refuse "fichiers suivis modifiés sous sync/ : $(tr '\n' ' ' <<<"$dirty")"
+fi
 
 echo "[deploy] push app.py ..."
 ssh "$ALIAS" push-pock-sync-app < "$DIR/app.py"
