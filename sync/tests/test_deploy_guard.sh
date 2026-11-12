@@ -24,7 +24,7 @@ cat > "$TMP/bin/ssh" <<'EOF'
 #!/usr/bin/env bash
 shift  # retire l'alias
 echo "$*" >> "$SSH_CALLS"
-case "$1" in push-*) cat > /dev/null ;; esac
+case "$1" in push-*) n="$(wc -c | tr -d ' ')"; echo "[$1] OK ($((n - ${SHORT:-0})) bytes)" ;; esac
 exit 0
 EOF
 chmod +x "$TMP/bin/ssh"
@@ -99,5 +99,12 @@ OUT="$(DEPLOY_ALLOW_UNMERGED=1 SSH_CALLS="$TMP/d/calls" PATH="$TMP/bin:$PATH" ba
 ok 0 "$RC" "exit 0"
 has "DEPLOY_ALLOW_UNMERGED" "$OUT" "avertissement affiché"
 has "^apply-pock-sync$" "$(cat "$TMP/d/calls")" "apply atteint"
+
+echo "cas I — la VM annonce moins d'octets qu'envoyés : arrêt avant apply"
+mkrepo "$TMP/i"; : > "$TMP/i/calls"
+OUT="$(SHORT=1 SSH_CALLS="$TMP/i/calls" PATH="$TMP/bin:$PATH" bash "$TMP/i/clone/sync/deploy.sh" 2>&1)"; RC=$?
+ok 1 "$RC" "exit 1"
+has "octets" "$OUT" "dit l'écart d'octets"
+if grep -x apply-pock-sync "$TMP/i/calls" >/dev/null; then echo "  FAIL apply ne doit pas partir"; fail=1; else echo "  ok   apply non joué"; fi
 
 [ "$fail" -eq 0 ] && echo "TOUS LES CAS PASSENT" || { echo "DES CAS ÉCHOUENT"; exit 1; }

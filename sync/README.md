@@ -70,8 +70,10 @@ copy of this `sync/` directory:
 sudo bash sync/bootstrap-pock-sync.sh
 ```
 
-Creates the `pock` system user, dirs (`/var/lib/pock-sync` 700), venv
-(fastapi + uvicorn), generates the token into `/etc/pock-sync.env`
+Creates the `pock` system user, dirs (`/var/lib/pock-sync` 700), the venv
+(owned by `pock`, installed from the relay's hashed lock
+`/opt/wol-relay/locks/requirements-pock-sync.lock` — so the relay repo's
+`bootstrap-wol-relay.sh` runs first on a rebuild), generates the token into `/etc/pock-sync.env`
 (0600, never overwritten on re-run), installs app + unit, enables the
 service, and curls `/pock/health`.
 

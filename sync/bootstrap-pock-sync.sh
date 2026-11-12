@@ -33,10 +33,19 @@ install -d -m 0755 -o root -g root /opt/pock-sync
 install -d -m 0700 -o pock -g pock /var/lib/pock-sync
 
 step "python venv + deps"
+# Same model as the relay's venv-run.sh (knowledge-base ADR 2026-11-01): the
+# venv belongs to the service user and holds exactly the hashed lock — pip
+# never runs as root and resolves nothing. The lock is seeded by the relay's
+# bootstrap-wol-relay.sh, so that one runs first on a rebuild.
+LOCK=/opt/wol-relay/locks/requirements-pock-sync.lock
 if [[ ! -x /opt/pock-sync/venv/bin/uvicorn ]]; then
-  python3 -m venv /opt/pock-sync/venv
-  /opt/pock-sync/venv/bin/pip install --quiet fastapi 'uvicorn[standard]'
-  echo "venv created"
+  [[ -s "$LOCK" ]] || { echo "ERR: $LOCK missing — run the relay repo's bootstrap-wol-relay.sh first" >&2; exit 1; }
+  install -d -m 0755 -o pock -g pock /opt/pock-sync/venv
+  runuser -u pock -- python3 -m venv /opt/pock-sync/venv
+  runuser -u pock -- env -i PATH=/usr/bin:/bin HOME=/nonexistent \
+    PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    /opt/pock-sync/venv/bin/pip install --quiet --require-hashes --no-deps --only-binary=:all: -r /dev/stdin < "$LOCK"
+  echo "venv created from the hashed lock"
 else
   echo "venv already present"
 fi

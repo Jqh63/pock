@@ -46,7 +46,12 @@ else
 fi
 
 echo "[deploy] push app.py ..."
-ssh "$ALIAS" push-pock-sync-app < "$DIR/app.py"
+# Le push coupé se termine côté VM par une fin de fichier ordinaire : seul le
+# nombre d'octets annoncé distingue un fichier entier d'un fichier tronqué.
+want="$(wc -c < "$DIR/app.py" | tr -d ' ')"
+out="$(ssh "$ALIAS" push-pock-sync-app < "$DIR/app.py")"; printf '%s\n' "$out"
+got="$(sed -n 's/.*OK (\([0-9][0-9]*\) bytes).*/\1/p' <<<"$out")"
+[ "$got" = "$want" ] || { echo "[deploy] FAIL — VM : '${got:-?}' octets reçus, $want envoyés. Rien appliqué." >&2; exit 1; }
 
 echo "[deploy] apply-pock-sync ..."
 ssh "$ALIAS" apply-pock-sync
